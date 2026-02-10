@@ -20,7 +20,48 @@ module Api
       render json: { error: "Ticket not found" }, status: :not_found
     end
 
+    def create
+      ticket = Ticket.new(ticket_params)
+
+      if ticket.save
+        ticket.ticket_events.create!(
+          event_type: "created",
+          actor_type: "user",
+          actor_id: "api",
+          data: { source: "backoffice" }
+        )
+        render json: serialize_ticket(ticket), status: :created
+      else
+        render json: { errors: ticket.errors.full_messages }, status: :unprocessable_entity
+      end
+    end
+
+    def update
+      ticket = Ticket.find(params[:id])
+      old_status = ticket.status
+
+      if ticket.update(ticket_params)
+        if ticket.status != old_status
+          ticket.ticket_events.create!(
+            event_type: "status_changed",
+            actor_type: "user",
+            actor_id: "api",
+            data: { old_status: old_status, new_status: ticket.status }
+          )
+        end
+        render json: serialize_ticket(ticket)
+      else
+        render json: { errors: ticket.errors.full_messages }, status: :unprocessable_entity
+      end
+    rescue ActiveRecord::RecordNotFound
+      render json: { error: "Ticket not found" }, status: :not_found
+    end
+
     private
+
+    def ticket_params
+      params.permit(:title, :description, :ticket_type, :priority, :status, :original_channel)
+    end
 
     def serialize_ticket(ticket)
       {
