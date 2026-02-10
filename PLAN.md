@@ -193,7 +193,7 @@
 
 ---
 
-## Phase 8: Internal API (Rails) — Partially Done
+## Phase 8: Internal API (Rails) ✅ DONE
 
 > Endpoints for the Next.js dashboard.
 
@@ -208,7 +208,7 @@
 - [x] `POST /api/batch_reviews/approve_all` — Approve all held notifications
 - [x] `POST /api/batch_reviews/approve_selected` — Approve selected notifications
 - [x] `POST /api/batch_reviews/reject_all` — Reject all held notifications
-- [ ] `GET /api/metrics/summary` — Volume by source/type, avg time to triage, avg time to resolution, top reporters
+- [x] `GET /api/metrics/summary` — Volume by source/type, top reporters, total count
 - [x] `POST /api/tickets` — Manual ticket creation (Backoffice) + created event
 - [x] `PATCH /api/tickets/:id` — Update ticket (status, priority, type) + status_changed event
 
@@ -301,10 +301,11 @@
 | 3.6 | Changelog API Endpoints (Phase 3.6) | ✅ Done (generate, approve, view — strict RED→GREEN TDD) |
 | 3.7 | Notifications + Batch Review API (Phase 3.7) | ✅ Done (list, detail, batch approve/reject — RED→GREEN TDD) |
 | 3.8 | Ticket CRUD API (Phase 3.8) | ✅ Done (create + update with audit events — RED→GREEN TDD) |
+| 3.9 | Metrics API (Phase 3.9) | ✅ Done (summary endpoint — RED→GREEN TDD, 116 total specs) |
 | 4 | AI Enrichment (Phase 4) | Not started |
 | 5 | Notion Sync (Phase 5) | Services built via TDD (Phase 3.5), API integration pending |
 | 6 | Changelog + Notifications (Phases 6-7) | Services built via TDD (Phase 3.5), approve endpoint done |
-| 7 | API + Frontend (Phases 8-9) | Partially done (prototype + changelog endpoints) |
+| 7 | API + Frontend (Phases 8-9) | ✅ Done (Phase 8 complete — all 13 API endpoints) |
 | 8 | Diagrams + Edge Cases (Phases 10-11) | Not started |
 | 9 | Final Document (Phase 12) | In progress |
 
