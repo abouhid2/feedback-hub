@@ -1,5 +1,32 @@
-/Mainder Feedback Hub Design.pdf
-/PLAN.md
-/docs
-/email.md
-/remaindertechnicalchallengethefeedbackloopnextst
+# === macOS ===
+.DS_Store
+**/.DS_Store
+
+# === IDE / Editor ===
+.claude/
+
+# === Rails (hub/) ===
+hub/config/master.key
+hub/config/credentials/*.key
+hub/log/*
+!hub/log/.keep
+hub/tmp/
+hub/storage/*
+!hub/storage/.keep
+hub/.bundle/
+hub/vendor/bundle/
+hub/db/*.sqlite3
+hub/db/*.sqlite3-journal
+
+# === Next.js (frontend/) ===
+# (frontend/.gitignore handles most, but just in case)
+frontend/node_modules/
+frontend/.next/
+frontend/next-env.d.ts
+
+# === Misc ===
+/ignored
+*.log
+.env
+.env.*
+!.env.example
