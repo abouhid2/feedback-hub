@@ -80,5 +80,42 @@ RSpec.describe NotionPollService, type: :service do
           .not_to change { ticket.reload.updated_at }
       end
     end
+
+    context "when Notion returns 429 rate limit" do
+      before do
+        stub_request(:post, "https://api.notion.com/v1/databases/test-db-id/query")
+          .to_return(status: 429, body: '{"object":"error","message":"Rate limited"}', headers: { "Retry-After" => "3" })
+      end
+
+      it "raises RateLimitError with retry_after" do
+        expect { described_class.poll }
+          .to raise_error(NotionPollService::RateLimitError) { |e| expect(e.retry_after).to eq(3) }
+      end
+    end
+
+    context "with multiple status changes in one poll" do
+      let!(:ticket2) { create(:ticket, status: "open", notion_page_id: "page-xyz") }
+
+      let(:multi_page_response) do
+        {
+          "results" => [
+            { "id" => "page-abc", "properties" => { "Status" => { "select" => { "name" => "Done" } } } },
+            { "id" => "page-xyz", "properties" => { "Status" => { "select" => { "name" => "In Progress" } } } }
+          ],
+          "has_more" => false
+        }
+      end
+
+      before do
+        stub_request(:post, "https://api.notion.com/v1/databases/test-db-id/query")
+          .to_return(status: 200, body: multi_page_response.to_json, headers: { "Content-Type" => "application/json" })
+      end
+
+      it "processes all changed pages" do
+        described_class.poll
+        expect(ticket.reload.status).to eq("resolved")
+        expect(ticket2.reload.status).to eq("in_progress")
+      end
+    end
   end
 end

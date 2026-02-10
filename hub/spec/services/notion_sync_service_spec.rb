@@ -75,5 +75,23 @@ RSpec.describe NotionSyncService, type: :service do
         expect(ticket.reload.notion_page_id).to be_nil
       end
     end
+
+    context "when Notion returns 429 rate limit" do
+      before do
+        stub_request(:post, "https://api.notion.com/v1/pages")
+          .to_return(status: 429, body: '{"object":"error","message":"Rate limited"}', headers: { "Retry-After" => "2" })
+      end
+
+      it "raises RateLimitError" do
+        expect { described_class.push(ticket) }
+          .to raise_error(NotionSyncService::RateLimitError)
+      end
+
+      it "includes retry_after in the error" do
+        described_class.push(ticket)
+      rescue NotionSyncService::RateLimitError => e
+        expect(e.retry_after).to eq(2)
+      end
+    end
   end
 end

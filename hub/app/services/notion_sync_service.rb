@@ -1,6 +1,15 @@
 class NotionSyncService
   class ApiError < StandardError; end
 
+  class RateLimitError < ApiError
+    attr_reader :retry_after
+
+    def initialize(retry_after: nil, message: "Rate limited by Notion API")
+      @retry_after = retry_after
+      super(message)
+    end
+  end
+
   NOTION_API_URL = "https://api.notion.com/v1/pages".freeze
   NOTION_VERSION = "2022-06-28".freeze
 
@@ -26,6 +35,7 @@ class NotionSyncService
     uri = URI(NOTION_API_URL)
     response = make_request(:post, uri, create_payload)
 
+    check_rate_limit!(response)
     raise ApiError, "Notion API error: #{response.code} - #{response.body}" unless response.code == "200"
 
     page = JSON.parse(response.body)
@@ -40,6 +50,7 @@ class NotionSyncService
     uri = URI("#{NOTION_API_URL}/#{@ticket.notion_page_id}")
     response = make_request(:patch, uri, update_payload)
 
+    check_rate_limit!(response)
     raise ApiError, "Notion API error: #{response.code} - #{response.body}" unless response.code == "200"
 
     create_sync_event
@@ -58,6 +69,13 @@ class NotionSyncService
     request.body = body.to_json
 
     http.request(request)
+  end
+
+  def check_rate_limit!(response)
+    return unless response.code == "429"
+
+    retry_after = response["Retry-After"]&.to_i
+    raise RateLimitError.new(retry_after: retry_after)
   end
 
   def create_sync_event
