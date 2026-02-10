@@ -6,6 +6,7 @@ class TicketEvent < ApplicationRecord
     changelog_drafted changelog_approved changelog_rejected
     notification_sent notification_failed
     synced_to_notion
+    ai_triaged
   ].freeze
 
   validates :event_type, presence: true, inclusion: { in: EVENT_TYPES }

@@ -113,22 +113,22 @@
 
 ---
 
-## Phase 4: AI Enrichment Pipeline
+## Phase 4: AI Enrichment Pipeline ✅ DONE
 
 > OpenAI-powered triage before human intervention.
 
-- [ ] Design the `AiTriageJob` (Sidekiq) — runs after ticket creation
+- [x] Design the `AiTriageJob` (Sidekiq) — runs after ticket creation
   - Auto-categorize: Type (Bug, Feature, Question) + Severity (P0-P5)
   - Summarize: Generate clean one-sentence title
   - Store AI suggestions as `ai_suggested_*` fields (separate from human-confirmed fields)
-- [ ] PII Handling Strategy:
+- [x] PII Handling Strategy:
   - Strip/redact emails, phone numbers, names before sending to OpenAI
   - Use a `PiiScrubber` service with regex + allow-list approach
   - Log only redacted versions; store originals encrypted at rest
-- [ ] Human-in-the-loop:
+- [x] Human-in-the-loop:
   - AI suggestions are **drafts** — support team reviews/edits in dashboard before syncing to Notion
   - Fields: `ai_suggested_type`, `ai_suggested_priority`, `ai_summary` vs `confirmed_type`, `confirmed_priority`, `title`
-- [ ] Fallback: If OpenAI is down, ticket is saved with `enrichment_status: :pending`, retried via Sidekiq
+- [x] Fallback: If OpenAI is down, ticket is saved with `enrichment_status: :pending`, retried via Sidekiq
 
 ---
 
@@ -302,7 +302,7 @@
 | 3.7 | Notifications + Batch Review API (Phase 3.7) | ✅ Done (list, detail, batch approve/reject — RED→GREEN TDD) |
 | 3.8 | Ticket CRUD API (Phase 3.8) | ✅ Done (create + update with audit events — RED→GREEN TDD) |
 | 3.9 | Metrics API (Phase 3.9) | ✅ Done (summary endpoint — RED→GREEN TDD, 116 total specs) |
-| 4 | AI Enrichment (Phase 4) | Not started |
+| 4 | AI Enrichment (Phase 4) | ✅ Done (AiTriageService + PiiScrubber + AiTriageJob — RED→GREEN TDD, 129 total specs) |
 | 5 | Notion Sync (Phase 5) | Services built via TDD (Phase 3.5), API integration pending |
 | 6 | Changelog + Notifications (Phases 6-7) | Services built via TDD (Phase 3.5), approve endpoint done |
 | 7 | API + Frontend (Phases 8-9) | ✅ Done (Phase 8 complete — all 13 API endpoints) |

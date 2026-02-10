@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_10_190228) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_10_211824) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -109,8 +109,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_10_190228) do
   end
 
   create_table "tickets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.integer "ai_suggested_priority"
+    t.string "ai_suggested_type"
+    t.text "ai_summary"
     t.datetime "created_at", null: false
     t.text "description"
+    t.string "enrichment_status", default: "pending"
     t.jsonb "metadata", default: {}
     t.string "notion_page_id"
     t.string "original_channel", null: false
@@ -122,6 +126,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_10_190228) do
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.index ["created_at"], name: "index_tickets_on_created_at"
+    t.index ["enrichment_status"], name: "index_tickets_on_enrichment_status"
     t.index ["notion_page_id"], name: "index_tickets_on_notion_page_id", unique: true, where: "(notion_page_id IS NOT NULL)"
     t.index ["original_channel"], name: "index_tickets_on_original_channel"
     t.index ["priority"], name: "index_tickets_on_priority"
