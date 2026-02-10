@@ -24,6 +24,10 @@ Rails.application.routes.draw do
       post :approve_selected
       post :reject_all
     end
+
+    resource :metrics, only: [] do
+      get :summary
+    end
   end
 
   # Health check
