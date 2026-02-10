@@ -12,5 +12,14 @@ RSpec.describe NotionSyncJob, type: :job do
     it "discards gracefully if ticket not found" do
       expect { described_class.new.perform(SecureRandom.uuid) }.not_to raise_error
     end
+
+    it "retries with delay on RateLimitError" do
+      allow(NotionSyncService).to receive(:push).and_raise(
+        NotionSyncService::RateLimitError.new(retry_after: 5)
+      )
+
+      expect { described_class.perform_now(ticket.id) }
+        .to raise_error(NotionSyncService::RateLimitError)
+    end
   end
 end
