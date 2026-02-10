@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_10_211824) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_10_235205) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -63,6 +63,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_10_211824) do
   create_table "reporter_identities", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "display_name"
+    t.datetime "last_message_at"
     t.jsonb "metadata", default: {}
     t.string "platform", null: false
     t.string "platform_user_id", null: false
