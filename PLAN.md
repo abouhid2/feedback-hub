@@ -132,22 +132,22 @@
 
 ---
 
-## Phase 5: Notion Two-Way Sync
+## Phase 5: Notion Two-Way Sync ✅ DONE
 
 > Push tickets to Notion, pull status changes back.
 
-- [ ] **Push (Hub → Notion):** `NotionSyncJob` creates Notion page when ticket is triaged/confirmed
+- [x] **Push (Hub → Notion):** `NotionSyncJob` creates Notion page when ticket is triaged/confirmed
   - Map fields: Title → Name, Priority → P0-P5 select, Type → Bug/Task/User Story, Status, Reporter, Source
   - Store `notion_page_id` on ticket for linking
-- [ ] **Pull (Notion → Hub):** Incremental polling strategy
-  - `NotionPollJob` runs every 2-3 minutes via Sidekiq-Cron
+- [x] **Pull (Notion → Hub):** Incremental polling strategy
+  - `NotionPollSchedulerJob` self-reschedules every 2 minutes
   - Query Notion API: `filter: last_edited_time > last_poll_timestamp`
-  - Detect status changes (especially → Done)
+  - Detect status changes (especially → Done), processes multiple pages per poll
   - Use `last_edited_time` cursor to avoid re-processing
   - Justification: Notion lacks granular webhooks; polling with cursor is pragmatic, stays well within rate limits (~3 req/min vs 3 req/sec limit)
-- [ ] Conflict resolution: Notion status wins (it's the source of truth for execution)
-- [ ] Rate limit handling: exponential backoff + respect Retry-After headers
-- [ ] If Notion API is down: queue syncs in Sidekiq with retry, no data loss
+- [x] Conflict resolution: Notion status wins (it's the source of truth for execution)
+- [x] Rate limit handling: `RateLimitError` with `retry_after` on both sync + poll, respects Retry-After headers
+- [x] If Notion API is down: queue syncs in Sidekiq with retry, no data loss
 
 ---
 
@@ -303,7 +303,7 @@
 | 3.8 | Ticket CRUD API (Phase 3.8) | ✅ Done (create + update with audit events — RED→GREEN TDD) |
 | 3.9 | Metrics API (Phase 3.9) | ✅ Done (summary endpoint — RED→GREEN TDD, 116 total specs) |
 | 4 | AI Enrichment (Phase 4) | ✅ Done (AiTriageService + PiiScrubber + AiTriageJob — RED→GREEN TDD, 129 total specs) |
-| 5 | Notion Sync (Phase 5) | Services built via TDD (Phase 3.5), API integration pending |
+| 5 | Notion Sync (Phase 5) | ✅ Done (rate limit handling + poll scheduler — RED→GREEN TDD, 137 total specs) |
 | 6 | Changelog + Notifications (Phases 6-7) | Services built via TDD (Phase 3.5), approve endpoint done |
 | 7 | API + Frontend (Phases 8-9) | ✅ Done (Phase 8 complete — all 13 API endpoints) |
 | 8 | Diagrams + Edge Cases (Phases 10-11) | Not started |

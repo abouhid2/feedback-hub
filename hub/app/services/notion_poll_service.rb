@@ -1,4 +1,13 @@
 class NotionPollService
+  class RateLimitError < StandardError
+    attr_reader :retry_after
+
+    def initialize(retry_after: nil, message: "Rate limited by Notion API")
+      @retry_after = retry_after
+      super(message)
+    end
+  end
+
   NOTION_VERSION = "2022-06-28".freeze
   STATUS_MAP = { "Done" => "resolved", "In Progress" => "in_progress", "Open" => "open" }.freeze
 
@@ -9,6 +18,7 @@ class NotionPollService
   def poll
     database_id = ENV.fetch("NOTION_DATABASE_ID", "default-db-id")
     response = query_notion(database_id)
+    check_rate_limit!(response)
     return unless response.code == "200"
 
     data = JSON.parse(response.body)
@@ -21,6 +31,13 @@ class NotionPollService
   end
 
   private
+
+  def check_rate_limit!(response)
+    return unless response.code == "429"
+
+    retry_after = response["Retry-After"]&.to_i
+    raise RateLimitError.new(retry_after: retry_after)
+  end
 
   def query_notion(database_id)
     uri = URI("https://api.notion.com/v1/databases/#{database_id}/query")
