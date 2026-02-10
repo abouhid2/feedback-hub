@@ -15,6 +15,15 @@ Rails.application.routes.draw do
         patch :approve_changelog, to: "changelogs#approve"
       end
     end
+
+    resources :notifications, only: [:index, :show]
+
+    resource :batch_reviews, only: [] do
+      get :pending
+      post :approve_all
+      post :approve_selected
+      post :reject_all
+    end
   end
 
   # Health check
