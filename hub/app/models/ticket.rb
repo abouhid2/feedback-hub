@@ -11,6 +11,7 @@ class Ticket < ApplicationRecord
   validates :priority, presence: true, inclusion: { in: 0..5 }
   validates :status, presence: true, inclusion: { in: %w[open in_progress resolved closed] }
   validates :original_channel, presence: true, inclusion: { in: %w[slack intercom whatsapp] }
+  validates :enrichment_status, inclusion: { in: %w[pending completed failed] }, allow_nil: true
 
   scope :by_status, ->(status) { where(status: status) if status.present? }
   scope :by_channel, ->(channel) { where(original_channel: channel) if channel.present? }
