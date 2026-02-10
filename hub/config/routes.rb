@@ -8,7 +8,7 @@ Rails.application.routes.draw do
 
   # API endpoints (serve the frontend)
   namespace :api do
-    resources :tickets, only: [:index, :show] do
+    resources :tickets, only: [:index, :show, :create, :update] do
       member do
         get :changelog, to: "changelogs#show"
         post :generate_changelog, to: "changelogs#create"
