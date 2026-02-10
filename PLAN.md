@@ -199,8 +199,9 @@
 
 - [x] `GET /api/tickets` — List with filters (status, channel, priority) + eager loading
 - [x] `GET /api/tickets/:id` — Detail with sources, events timeline
-- [ ] `POST /api/tickets/:id/generate_changelog` — Manually trigger AI changelog draft
-- [ ] `PATCH /api/tickets/:id/approve_changelog` — Approve AI message for sending
+- [x] `POST /api/tickets/:id/generate_changelog` — Manually trigger AI changelog draft
+- [x] `PATCH /api/tickets/:id/approve_changelog` — Approve AI message for sending
+- [x] `GET /api/tickets/:id/changelog` — View current changelog entry with status
 - [ ] `GET /api/metrics/summary` — Volume by source/type, avg time to triage, avg time to resolution, top reporters
 - [ ] `POST /api/tickets` — Manual ticket creation (Backoffice)
 - [ ] `PATCH /api/tickets/:id` — Update ticket (confirm AI suggestions, change priority, etc.)
@@ -290,11 +291,12 @@
 | 1 | Data Model (Phase 1) | ✅ Done |
 | 2 | Architecture Overview (Phase 2) | ✅ Done |
 | 3 | Ingestion (Phase 3) | ✅ Done (prototype) |
-| 3.5 | TDD Core Services (Phase 3.5) | ✅ Done (122 specs, 6 services, 5 jobs) |
+| 3.5 | TDD Core Services (Phase 3.5) | ✅ Done (94 specs, 6 services, 5 jobs) |
+| 3.6 | Changelog API Endpoints (Phase 3.6) | ✅ Done (generate, approve, view — strict RED→GREEN TDD) |
 | 4 | AI Enrichment (Phase 4) | Not started |
 | 5 | Notion Sync (Phase 5) | Services built via TDD (Phase 3.5), API integration pending |
-| 6 | Changelog + Notifications (Phases 6-7) | Services built via TDD (Phase 3.5), API endpoints pending |
-| 7 | API + Frontend (Phases 8-9) | Partially done (prototype) |
+| 6 | Changelog + Notifications (Phases 6-7) | Services built via TDD (Phase 3.5), approve endpoint done |
+| 7 | API + Frontend (Phases 8-9) | Partially done (prototype + changelog endpoints) |
 | 8 | Diagrams + Edge Cases (Phases 10-11) | Not started |
 | 9 | Final Document (Phase 12) | In progress |
 
