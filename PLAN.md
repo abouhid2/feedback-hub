@@ -202,6 +202,12 @@
 - [x] `POST /api/tickets/:id/generate_changelog` — Manually trigger AI changelog draft
 - [x] `PATCH /api/tickets/:id/approve_changelog` — Approve AI message for sending
 - [x] `GET /api/tickets/:id/changelog` — View current changelog entry with status
+- [x] `GET /api/notifications` — List with filters (status, channel, ticket_id)
+- [x] `GET /api/notifications/:id` — Detail with retry history
+- [x] `GET /api/batch_reviews/pending` — Pending batch review notifications
+- [x] `POST /api/batch_reviews/approve_all` — Approve all held notifications
+- [x] `POST /api/batch_reviews/approve_selected` — Approve selected notifications
+- [x] `POST /api/batch_reviews/reject_all` — Reject all held notifications
 - [ ] `GET /api/metrics/summary` — Volume by source/type, avg time to triage, avg time to resolution, top reporters
 - [ ] `POST /api/tickets` — Manual ticket creation (Backoffice)
 - [ ] `PATCH /api/tickets/:id` — Update ticket (confirm AI suggestions, change priority, etc.)
@@ -293,6 +299,7 @@
 | 3 | Ingestion (Phase 3) | ✅ Done (prototype) |
 | 3.5 | TDD Core Services (Phase 3.5) | ✅ Done (94 specs, 6 services, 5 jobs) |
 | 3.6 | Changelog API Endpoints (Phase 3.6) | ✅ Done (generate, approve, view — strict RED→GREEN TDD) |
+| 3.7 | Notifications + Batch Review API (Phase 3.7) | ✅ Done (list, detail, batch approve/reject — RED→GREEN TDD) |
 | 4 | AI Enrichment (Phase 4) | Not started |
 | 5 | Notion Sync (Phase 5) | Services built via TDD (Phase 3.5), API integration pending |
 | 6 | Changelog + Notifications (Phases 6-7) | Services built via TDD (Phase 3.5), approve endpoint done |
