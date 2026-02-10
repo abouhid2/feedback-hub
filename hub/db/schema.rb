@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_09_205554) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_10_190228) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -28,25 +28,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_205554) do
   end
 
   create_table "changelog_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "changed_by"
+    t.integer "ai_completion_tokens"
+    t.string "ai_model"
+    t.integer "ai_prompt_tokens"
+    t.datetime "approved_at"
+    t.string "approved_by"
+    t.text "content", null: false
     t.datetime "created_at", null: false
-    t.string "field_name", null: false
-    t.string "new_value"
-    t.string "old_value"
+    t.string "status", default: "draft", null: false
     t.uuid "ticket_id", null: false
     t.datetime "updated_at", null: false
+    t.index ["status"], name: "index_changelog_entries_on_status"
     t.index ["ticket_id"], name: "index_changelog_entries_on_ticket_id"
   end
 
   create_table "notifications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "changelog_entry_id"
     t.string "channel", null: false
     t.text "content"
     t.datetime "created_at", null: false
+    t.datetime "delivered_at"
+    t.text "last_error"
     t.string "recipient", null: false
+    t.integer "retry_count", default: 0
     t.datetime "sent_at"
     t.string "status", default: "pending", null: false
     t.uuid "ticket_id", null: false
     t.datetime "updated_at", null: false
+    t.index ["changelog_entry_id"], name: "index_notifications_on_changelog_entry_id"
     t.index ["status"], name: "index_notifications_on_status"
     t.index ["ticket_id"], name: "index_notifications_on_ticket_id"
   end
@@ -103,6 +112,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_205554) do
     t.datetime "created_at", null: false
     t.text "description"
     t.jsonb "metadata", default: {}
+    t.string "notion_page_id"
     t.string "original_channel", null: false
     t.integer "priority", default: 3, null: false
     t.uuid "reporter_id"
@@ -112,6 +122,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_205554) do
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.index ["created_at"], name: "index_tickets_on_created_at"
+    t.index ["notion_page_id"], name: "index_tickets_on_notion_page_id", unique: true, where: "(notion_page_id IS NOT NULL)"
     t.index ["original_channel"], name: "index_tickets_on_original_channel"
     t.index ["priority"], name: "index_tickets_on_priority"
     t.index ["reporter_id"], name: "index_tickets_on_reporter_id"
@@ -121,6 +132,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_205554) do
 
   add_foreign_key "attachments", "tickets"
   add_foreign_key "changelog_entries", "tickets"
+  add_foreign_key "notifications", "changelog_entries"
   add_foreign_key "notifications", "tickets"
   add_foreign_key "reporter_identities", "reporters"
   add_foreign_key "ticket_events", "tickets"
