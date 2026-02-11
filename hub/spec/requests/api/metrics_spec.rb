@@ -64,5 +64,65 @@ RSpec.describe "Api::Metrics", type: :request do
       body = JSON.parse(response.body)
       expect(body["total"]).to eq(11)
     end
+
+    context "with period filter" do
+      before do
+        # Create an old ticket (40 days ago)
+        travel_to(40.days.ago) do
+          create(:ticket, original_channel: "slack", ticket_type: "bug", status: "open")
+        end
+      end
+
+      it "returns all tickets when no period given" do
+        get "/api/metrics/summary"
+
+        body = JSON.parse(response.body)
+        expect(body["total"]).to eq(12) # 11 from before + 1 old
+      end
+
+      it "filters to last 24 hours with period=24h" do
+        get "/api/metrics/summary", params: { period: "24h" }
+
+        body = JSON.parse(response.body)
+        expect(body["total"]).to eq(11) # excludes old ticket
+      end
+
+      it "filters to last 7 days with period=7d" do
+        get "/api/metrics/summary", params: { period: "7d" }
+
+        body = JSON.parse(response.body)
+        expect(body["total"]).to eq(11)
+      end
+
+      it "filters to last 30 days with period=30d" do
+        get "/api/metrics/summary", params: { period: "30d" }
+
+        body = JSON.parse(response.body)
+        expect(body["total"]).to eq(11) # 40-day-old ticket excluded
+      end
+
+      it "filters by_channel within the period" do
+        get "/api/metrics/summary", params: { period: "24h" }
+
+        body = JSON.parse(response.body)
+        expect(body["by_channel"]["slack"]).to eq(9) # old slack ticket excluded
+      end
+
+      it "filters top_reporters within the period" do
+        get "/api/metrics/summary", params: { period: "24h" }
+
+        body = JSON.parse(response.body)
+        top = body["top_reporters"]
+        expect(top.first["name"]).to eq("Top Reporter")
+        expect(top.first["ticket_count"]).to eq(4)
+      end
+
+      it "ignores invalid period values and returns all" do
+        get "/api/metrics/summary", params: { period: "invalid" }
+
+        body = JSON.parse(response.body)
+        expect(body["total"]).to eq(12)
+      end
+    end
   end
 end

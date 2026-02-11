@@ -8,8 +8,10 @@ RSpec.describe "Webhook Signature Verification", type: :request do
     allow(ENV).to receive(:fetch).with("SLACK_SIGNING_SECRET", anything).and_return(secret)
     allow(ENV).to receive(:fetch).with("INTERCOM_WEBHOOK_SECRET", anything).and_return(secret)
     allow(ENV).to receive(:fetch).with("WHATSAPP_WEBHOOK_SECRET", anything).and_return(secret)
-    # Force production-like verification
+    # Force production-like verification for webhook signatures
     allow(Rails.env).to receive(:production?).and_return(true)
+    # Prevent AI inference from calling OpenAI during webhook tests
+    allow(TicketTypeInferenceService).to receive(:infer).and_return("bug")
   end
 
   describe "POST /webhooks/slack" do

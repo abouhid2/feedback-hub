@@ -37,8 +37,10 @@ export interface MetricsSummary {
   top_reporters: { name: string; ticket_count: number }[];
 }
 
-export function fetchMetrics(): Promise<MetricsSummary> {
-  return request<MetricsSummary>("/api/metrics/summary");
+export function fetchMetrics(period?: string): Promise<MetricsSummary> {
+  const params: Record<string, string> = {};
+  if (period && period !== "all") params.period = period;
+  return request<MetricsSummary>("/api/metrics/summary", Object.keys(params).length > 0 ? params : undefined);
 }
 
 export interface PaginatedTickets {
@@ -51,11 +53,12 @@ export interface PaginatedTickets {
   };
 }
 
-export function fetchTickets(filters?: { channel?: string; status?: string; priority?: string; page?: number; per_page?: number }): Promise<PaginatedTickets> {
+export function fetchTickets(filters?: { channel?: string; status?: string; priority?: string; type?: string; page?: number; per_page?: number }): Promise<PaginatedTickets> {
   const params: Record<string, string> = {};
   if (filters?.channel && filters.channel !== "all") params.channel = filters.channel;
   if (filters?.status && filters.status !== "all") params.status = filters.status;
   if (filters?.priority && filters.priority !== "all") params.priority = filters.priority;
+  if (filters?.type && filters.type !== "all") params.type = filters.type;
   if (filters?.page) params.page = String(filters.page);
   if (filters?.per_page) params.per_page = String(filters.per_page);
   return request<PaginatedTickets>("/api/tickets", Object.keys(params).length > 0 ? params : undefined);

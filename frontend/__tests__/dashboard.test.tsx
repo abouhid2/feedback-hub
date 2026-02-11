@@ -15,6 +15,11 @@ jest.mock("next/link", () => {
   };
 });
 
+// Mock next/navigation for useSearchParams
+jest.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // Mock fetch to return test tickets
 const mockTickets = [
   {
@@ -94,7 +99,7 @@ describe("Dashboard — ticket list", () => {
     await screen.findByRole("link", { name: /Login button broken/i });
 
     const selects = screen.getAllByRole("combobox");
-    expect(selects).toHaveLength(3);
+    expect(selects).toHaveLength(4);
 
     // Channel filter
     expect(screen.getByRole("option", { name: "All channels" })).toBeInTheDocument();

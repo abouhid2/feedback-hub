@@ -16,5 +16,6 @@ class Ticket < ApplicationRecord
   scope :by_status, ->(status) { where(status: status) if status.present? }
   scope :by_channel, ->(channel) { where(original_channel: channel) if channel.present? }
   scope :by_priority, ->(priority) { where(priority: priority) if priority.present? }
+  scope :by_type, ->(type) { where(ticket_type: type) if type.present? }
   scope :recent, -> { order(created_at: :desc) }
 end

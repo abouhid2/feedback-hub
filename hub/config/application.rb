@@ -36,6 +36,9 @@ module Hub
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
 
+    # Autoload app/constants directory
+    config.autoload_paths << Rails.root.join("app/constants")
+
     # Use Sidekiq for Active Job
     config.active_job.queue_adapter = :sidekiq
 

@@ -9,10 +9,11 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/batch-reviews", label: "Batch Reviews" },
   { href: "/notifications", label: "Notifications" },
+  { href: "/metrics", label: "Metrics" },
 ];
 
 const CHANNELS = [
-  { key: "slack" as const, label: "# Slack", cls: "simulate-btn-slack" },
+  { key: "slack" as const, label: "Slack", cls: "simulate-btn-slack" },
   { key: "intercom" as const, label: "Intercom", cls: "simulate-btn-intercom" },
   { key: "whatsapp" as const, label: "WhatsApp", cls: "simulate-btn-whatsapp" },
 ];
@@ -46,8 +47,8 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <h1 className="text-lg font-bold text-white">Mainder</h1>
-        <p className="text-xs text-white/70">Feedback Hub</p>
+        <h1 className="text-2xl font-bold text-white">Mainder</h1>
+        <p className="text-sm text-white/70">Feedback Hub</p>
       </div>
 
       <nav className="p-4">
