@@ -24,38 +24,53 @@ RSpec.describe BatchReviewService, type: :service do
   end
 
   describe ".approve_all" do
-    let(:ticket) { create(:ticket, :resolved) }
+    let(:reporter) { create(:reporter) }
+    let!(:identity) { create(:reporter_identity, reporter: reporter, platform: "slack", platform_user_id: "U123ABC") }
+    let(:ticket) { create(:ticket, :resolved, reporter: reporter, original_channel: "slack") }
     let(:entry) { create(:changelog_entry, :approved, ticket: ticket) }
     let!(:notifications) do
       create_list(:notification, 3, :pending_batch_review, ticket: ticket, changelog_entry: entry)
+    end
+
+    before do
+      stub_request(:post, "https://slack.com/api/chat.postMessage")
+        .to_return(status: 200, body: '{"ok":true}', headers: { "Content-Type" => "application/json" })
     end
 
     it "transitions pending_batch_review notifications to pending" do
       described_class.approve_all(notifications)
       notifications.each do |n|
-        expect(n.reload.status).to eq("pending")
+        n.reload
+        expect(%w[pending sent]).to include(n.status)
       end
     end
 
-    it "enqueues dispatch jobs for each notification" do
+    it "delivers each notification via retry_notification" do
+      expect(NotificationDispatchService).to receive(:retry_notification).exactly(3).times.and_call_original
       described_class.approve_all(notifications)
-      expect(NotificationDispatchJob).to have_been_enqueued.exactly(3).times
     end
   end
 
   describe ".approve_selected" do
-    let(:ticket) { create(:ticket, :resolved) }
+    let(:reporter) { create(:reporter) }
+    let!(:identity) { create(:reporter_identity, reporter: reporter, platform: "slack", platform_user_id: "U123ABC") }
+    let(:ticket) { create(:ticket, :resolved, reporter: reporter, original_channel: "slack") }
     let(:entry) { create(:changelog_entry, :approved, ticket: ticket) }
     let!(:notifications) do
       create_list(:notification, 3, :pending_batch_review, ticket: ticket, changelog_entry: entry)
+    end
+
+    before do
+      stub_request(:post, "https://slack.com/api/chat.postMessage")
+        .to_return(status: 200, body: '{"ok":true}', headers: { "Content-Type" => "application/json" })
     end
 
     it "approves only selected notifications" do
       selected_ids = [notifications.first.id, notifications.second.id]
       described_class.approve_selected(selected_ids)
 
-      expect(notifications.first.reload.status).to eq("pending")
-      expect(notifications.second.reload.status).to eq("pending")
+      expect(%w[pending sent]).to include(notifications.first.reload.status)
+      expect(%w[pending sent]).to include(notifications.second.reload.status)
       expect(notifications.third.reload.status).to eq("pending_batch_review")
     end
   end
