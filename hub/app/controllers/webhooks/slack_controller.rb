@@ -1,9 +1,9 @@
 module Webhooks
   class SlackController < ApplicationController
     skip_before_action :verify_authenticity_token, raise: false
+    before_action :verify_signature
 
     def create
-      # TODO: Signature verification (stubbed for prototype)
       ticket = Ingestion::IngestionService.ingest(
         platform: "slack",
         payload: params.to_unsafe_h
@@ -13,6 +13,21 @@ module Webhooks
     rescue StandardError => e
       Rails.logger.error("Slack webhook error: #{e.message}")
       render json: { error: e.message }, status: :unprocessable_entity
+    end
+
+    private
+
+    def verify_signature
+      return unless Rails.env.production?
+
+      body = request.raw_post
+      timestamp = request.headers["X-Slack-Request-Timestamp"]
+      signature = request.headers["X-Slack-Signature"]
+      secret = ENV.fetch("SLACK_SIGNING_SECRET", "")
+
+      unless timestamp && signature && WebhookVerifierService.verify_slack(body: body, timestamp: timestamp, signature: signature, secret: secret)
+        render json: { error: "Invalid signature" }, status: :unauthorized
+      end
     end
   end
 end
