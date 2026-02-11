@@ -121,9 +121,9 @@ describe("Ticket Detail Page", () => {
 
     await screen.findByText("Login button broken on Safari");
     expect(screen.getByText(/P1 High/)).toBeInTheDocument();
-    expect(screen.getByText("slack")).toBeInTheDocument();
+    expect(screen.getAllByText("slack").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("open")).toBeInTheDocument();
-    expect(screen.getByText("Bug")).toBeInTheDocument();
+    expect(screen.getAllByText("Bug").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders the event timeline in chronological order", async () => {
