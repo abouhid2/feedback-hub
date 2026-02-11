@@ -78,22 +78,22 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="header-sticky">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-white">
               Mainder Feedback Hub
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-white/70">
               Multi-channel feedback ingestion &mdash; live prototype
             </p>
           </div>
-          <div className="text-right text-sm text-gray-400">
+          <div className="text-right text-sm text-white/70">
             {lastUpdated && (
               <span>Updated: {lastUpdated.toLocaleTimeString()}</span>
             )}
             <div className="flex items-center gap-1 mt-1">
-              <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
               <span>Auto-refreshing every 5s</span>
             </div>
           </div>
@@ -103,67 +103,57 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <StatCard label="Total Tickets" value={stats.total} color="text-gray-900" />
+          <StatCard label="Total Tickets" value={stats.total} color="text-brand" />
           <StatCard label="Slack" value={stats.slack} color="text-purple-600" />
           <StatCard label="Intercom" value={stats.intercom} color="text-blue-600" />
           <StatCard label="WhatsApp" value={stats.whatsapp} color="text-green-600" />
           <StatCard label="Critical (P0-P1)" value={stats.critical} color="text-red-600" />
         </div>
 
-        {/* Channel Filters */}
-        <div className="flex flex-wrap gap-2 mb-2">
-          {["all", "slack", "intercom", "whatsapp"].map((ch) => (
-            <button
-              key={ch}
-              onClick={() => updateFilter("channel", ch)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                filters.channel === ch
-                  ? "bg-gray-900 text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
-              }`}
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3 mb-4">
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">Channel</label>
+            <select
+              value={filters.channel}
+              onChange={(e) => updateFilter("channel", e.target.value)}
+              className="input-field w-auto"
             >
-              {ch === "all" ? "All channels" : ch.charAt(0).toUpperCase() + ch.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        {/* Status Filters */}
-        <div className="flex flex-wrap gap-2 mb-2">
-          {STATUS_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => updateFilter("status", opt.value)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                filters.status === opt.value
-                  ? "bg-gray-900 text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
-              }`}
+              <option value="all">All channels</option>
+              <option value="slack">Slack</option>
+              <option value="intercom">Intercom</option>
+              <option value="whatsapp">WhatsApp</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">Status</label>
+            <select
+              value={filters.status}
+              onChange={(e) => updateFilter("status", e.target.value)}
+              className="input-field w-auto"
             >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Priority Filters */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          {PRIORITY_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => updateFilter("priority", opt.value)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                filters.priority === opt.value
-                  ? "bg-gray-900 text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
-              }`}
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">Priority</label>
+            <select
+              value={filters.priority}
+              onChange={(e) => updateFilter("priority", e.target.value)}
+              className="input-field w-auto"
             >
-              {opt.label}
-            </button>
-          ))}
+              {PRIORITY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Error state */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <div className="card-error mb-4">
             <p className="text-red-700 text-sm">
               Failed to connect to API: {error}. Make sure Rails is running on port 3000.
             </p>
@@ -194,27 +184,27 @@ export default function Dashboard() {
         {tickets.length > 0 && (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-slate-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  <th className="table-th">
                     Priority
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  <th className="table-th">
                     Channel
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  <th className="table-th">
                     Title
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  <th className="table-th">
                     Type
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  <th className="table-th">
                     Reporter
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  <th className="table-th">
                     Status
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                  <th className="table-th">
                     Created
                   </th>
                 </tr>
@@ -223,11 +213,11 @@ export default function Dashboard() {
                 {tickets.map((ticket) => (
                   <tr
                     key={ticket.id}
-                    className="hover:bg-gray-50 transition-colors"
+                    className="hover:bg-brand-light transition-colors"
                   >
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
+                        className={`badge-priority ${
                           PRIORITY_COLORS[ticket.priority] || "bg-gray-200"
                         }`}
                       >
@@ -236,7 +226,7 @@ export default function Dashboard() {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                        className={`badge-channel ${
                           CHANNEL_COLORS[ticket.original_channel] || ""
                         }`}
                       >
@@ -247,7 +237,7 @@ export default function Dashboard() {
                     <td className="px-4 py-3 text-sm text-gray-900 max-w-md truncate">
                       <Link
                         href={`/tickets/${ticket.id}`}
-                        className="hover:text-blue-600 hover:underline"
+                        className="hover:text-brand hover:underline"
                       >
                         {ticket.title}
                       </Link>
@@ -260,7 +250,7 @@ export default function Dashboard() {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                        className={`badge ${
                           STATUS_COLORS[ticket.status] || ""
                         }`}
                       >
@@ -291,7 +281,7 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
+    <div className="card hover:border-brand/30 transition-colors">
       <p className="text-sm text-gray-500">{label}</p>
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
     </div>

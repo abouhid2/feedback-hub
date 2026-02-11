@@ -20,8 +20,8 @@ export default function AITriageCard({
   if (enrichmentStatus !== "completed") return null;
 
   return (
-    <div className="bg-indigo-50 rounded-lg border border-indigo-200 p-4">
-      <h2 className="text-sm font-semibold text-indigo-800 uppercase mb-3">
+    <div className="card-brand">
+      <h2 className="section-title text-brand mb-3">
         AI Triage
       </h2>
       <div className="space-y-2">
@@ -39,7 +39,7 @@ export default function AITriageCard({
             <span className="text-gray-600">
               Suggested priority:{" "}
               <span
-                className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
+                className={`badge-priority ${
                   PRIORITY_COLORS[aiSuggestedPriority] || "bg-gray-200"
                 }`}
               >

@@ -68,28 +68,31 @@ describe("Dashboard — ticket list", () => {
     expect(link2).toHaveAttribute("href", "/tickets/def-456");
   });
 
-  it("renders status filter buttons", async () => {
+  it("renders filter dropdowns with correct options", async () => {
     render(<Dashboard />);
 
     await screen.findByRole("link", { name: /Login button broken/i });
 
-    expect(screen.getByRole("button", { name: "All statuses" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "In Progress" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Resolved" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Closed" })).toBeInTheDocument();
-  });
+    const selects = screen.getAllByRole("combobox");
+    expect(selects).toHaveLength(3);
 
-  it("renders priority filter buttons", async () => {
-    render(<Dashboard />);
+    // Channel filter
+    expect(screen.getByRole("option", { name: "All channels" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Slack" })).toBeInTheDocument();
 
-    await screen.findByRole("link", { name: /Login button broken/i });
+    // Status filter
+    expect(screen.getByRole("option", { name: "All statuses" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Open" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "In Progress" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Resolved" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Closed" })).toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: "All priorities" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "P0 Critical" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "P1 High" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "P2 Medium" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "P3 Normal" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "P4 Low" })).toBeInTheDocument();
+    // Priority filter
+    expect(screen.getByRole("option", { name: "All priorities" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "P0 Critical" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "P1 High" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "P2 Medium" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "P3 Normal" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "P4 Low" })).toBeInTheDocument();
   });
 });

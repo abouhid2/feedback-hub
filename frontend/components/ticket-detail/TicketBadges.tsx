@@ -23,14 +23,14 @@ export default function TicketBadges({
   return (
     <div className="flex flex-wrap gap-2">
       <span
-        className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
+        className={`badge-priority ${
           PRIORITY_COLORS[priority] || "bg-gray-200"
         }`}
       >
         {PRIORITY_LABELS[priority] || `P${priority}`}
       </span>
       <span
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+        className={`badge-channel ${
           CHANNEL_COLORS[channel] || ""
         }`}
       >
@@ -38,13 +38,13 @@ export default function TicketBadges({
         {channel}
       </span>
       <span
-        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+        className={`badge ${
           STATUS_COLORS[status] || ""
         }`}
       >
         {status}
       </span>
-      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+      <span className="badge bg-brand-light text-brand">
         {TYPE_LABELS[ticketType] || ticketType}
       </span>
     </div>

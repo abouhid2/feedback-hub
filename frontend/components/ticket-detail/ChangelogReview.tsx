@@ -91,8 +91,8 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">
+      <div className="card">
+        <h2 className="section-title mb-2">
           Changelog Review
         </h2>
         <div className="animate-pulse space-y-2">
@@ -111,8 +111,8 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
   // No changelog but ticket is resolved — show generate button
   if (!changelog) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase mb-3">
+      <div className="card">
+        <h2 className="section-title mb-3">
           Changelog Review
         </h2>
         <p className="text-sm text-gray-600 mb-3">
@@ -121,7 +121,7 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
         <button
           onClick={handleGenerate}
           disabled={actionLoading}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          className="btn-primary px-4 py-2"
         >
           {actionLoading ? "Generating..." : "Generate Changelog"}
         </button>
@@ -135,12 +135,12 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
   // Approved state
   if (changelog.status === "approved") {
     return (
-      <div className="bg-green-50 rounded-lg border border-green-200 p-4">
+      <div className="card-success">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase">
+          <h2 className="section-title">
             Changelog Review
           </h2>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+          <span className={`badge ${statusColor}`}>
             {statusLabel}
           </span>
         </div>
@@ -160,12 +160,12 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
   // Rejected state
   if (changelog.status === "rejected") {
     return (
-      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+      <div className="card-muted">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase">
+          <h2 className="section-title">
             Changelog Review
           </h2>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+          <span className={`badge ${statusColor}`}>
             {statusLabel}
           </span>
         </div>
@@ -178,17 +178,17 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
 
   // Draft state
   return (
-    <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
+    <div className="card-warning">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase">
+        <h2 className="section-title">
           Changelog Review
         </h2>
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+        <span className={`badge ${statusColor}`}>
           {statusLabel}
         </span>
       </div>
 
-      <div className="bg-amber-100 border border-amber-300 rounded-md px-3 py-2 mb-3">
+      <div className="alert-warning mb-3">
         <p className="text-xs text-amber-800 font-medium">
           This AI-generated changelog entry requires human review before publishing.
         </p>
@@ -200,19 +200,19 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             rows={5}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="input-field"
           />
           <div className="flex gap-2">
             <button
               onClick={handleSaveEdit}
               disabled={actionLoading}
-              className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="btn-primary px-3 py-1.5"
             >
               {actionLoading ? "Saving..." : "Save"}
             </button>
             <button
               onClick={() => setEditing(false)}
-              className="px-3 py-1.5 bg-white text-gray-600 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+              className="btn-secondary px-3 py-1.5"
             >
               Cancel
             </button>
@@ -228,19 +228,19 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
             placeholder="Reason for rejection..."
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="input-field focus:ring-red-500"
           />
           <div className="flex gap-2">
             <button
               onClick={handleReject}
               disabled={actionLoading || !rejectReason.trim()}
-              className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50"
+              className="btn-reject px-3 py-1.5 disabled:opacity-50"
             >
               {actionLoading ? "Rejecting..." : "Confirm Reject"}
             </button>
             <button
               onClick={() => { setShowRejectForm(false); setRejectReason(""); }}
-              className="px-3 py-1.5 bg-white text-gray-600 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+              className="btn-secondary px-3 py-1.5"
             >
               Cancel
             </button>
@@ -254,20 +254,20 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
           <div className="flex gap-2">
             <button
               onClick={startEditing}
-              className="px-3 py-1.5 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+              className="btn-secondary px-3 py-1.5 text-gray-700"
             >
               Edit
             </button>
             <button
               onClick={handleApprove}
               disabled={actionLoading}
-              className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+              className="btn-approve px-3 py-1.5"
             >
               {actionLoading ? "Approving..." : "Approve"}
             </button>
             <button
               onClick={() => setShowRejectForm(true)}
-              className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700"
+              className="btn-reject px-3 py-1.5"
             >
               Reject
             </button>
