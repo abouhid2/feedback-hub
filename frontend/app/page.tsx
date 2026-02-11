@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { Ticket } from "../lib/types";
 import { fetchTickets as apiFetchTickets, fetchMetrics } from "../lib/api";
 import StatsCards from "../components/dashboard/StatsCards";
-import SimulateButtons from "../components/dashboard/SimulateButtons";
 import TicketFilters from "../components/dashboard/TicketFilters";
 import TicketTable from "../components/dashboard/TicketTable";
 
@@ -59,11 +58,6 @@ export default function Dashboard() {
     setPage(1);
   };
 
-  const handleSimulated = () => {
-    setPage(1);
-    refreshData();
-  };
-
   return (
     <div className="min-h-screen">
       <header className="header-sticky">
@@ -90,7 +84,6 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         <StatsCards stats={stats} />
-        <SimulateButtons onSimulated={handleSimulated} />
         <TicketFilters filters={filters} onFilterChange={handleFilterChange} />
 
         {error && (

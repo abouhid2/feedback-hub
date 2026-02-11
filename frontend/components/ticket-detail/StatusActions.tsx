@@ -52,7 +52,7 @@ export default function StatusActions({ ticketId, currentStatus, onStatusChange 
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-gray-500">Actions:</span>
+        <span className="text-xs font-medium text-gray-500">Simulate Notion Actions:</span>
         {transitions.map((t) => (
           <button
             key={t.status}
