@@ -275,6 +275,46 @@ describe("Ticket Detail Page", () => {
   });
 });
 
+describe("Ticket Detail — Status Actions", () => {
+  beforeEach(() => {
+    setupFetchMock();
+  });
+
+  it("shows status transition buttons for open ticket", async () => {
+    render(<TicketDetailPage />);
+
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
+
+    expect(screen.getByRole("button", { name: "Start Progress" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Resolve" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+  });
+
+  it("shows correct transitions for resolved ticket", async () => {
+    const resolvedTicket = { ...mockTicketDetail, status: "resolved" };
+    global.fetch = jest.fn((url: string) => {
+      if (url.includes("/changelog")) {
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({ error: "No changelog entry found" }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(resolvedTicket),
+      });
+    }) as jest.Mock;
+
+    render(<TicketDetailPage />);
+
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
+
+    expect(screen.getByRole("button", { name: "Reopen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start Progress" })).not.toBeInTheDocument();
+  });
+});
+
 describe("Ticket Detail — Changelog Review", () => {
   it("shows changelog review section with draft content", async () => {
     setupFetchMock({ ok: true, body: mockDraftChangelog });

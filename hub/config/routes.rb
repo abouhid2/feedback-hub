@@ -15,6 +15,7 @@ Rails.application.routes.draw do
         patch :approve_changelog, to: "changelogs#approve"
         patch :reject_changelog, to: "changelogs#reject"
         patch :update_changelog_draft, to: "changelogs#update_draft"
+        post :simulate_status
       end
     end
 

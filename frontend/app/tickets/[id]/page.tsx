@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { TicketDetail } from "../../../lib/types";
@@ -11,6 +11,7 @@ import ChangelogReview from "../../../components/ticket-detail/ChangelogReview";
 import TicketTimeline from "../../../components/ticket-detail/TicketTimeline";
 import DataComparison from "../../../components/ticket-detail/DataComparison";
 import SourcesList from "../../../components/ticket-detail/SourcesList";
+import StatusActions from "../../../components/ticket-detail/StatusActions";
 
 export default function TicketDetailPage() {
   const params = useParams();
@@ -19,20 +20,21 @@ export default function TicketDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const data = await fetchTicket(id);
-        setTicket(data);
-        setError(null);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load ticket");
-      } finally {
-        setLoading(false);
-      }
+  const loadTicket = useCallback(async () => {
+    try {
+      const data = await fetchTicket(id);
+      setTicket(data);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load ticket");
+    } finally {
+      setLoading(false);
     }
-    load();
   }, [id]);
+
+  useEffect(() => {
+    loadTicket();
+  }, [loadTicket]);
 
   if (loading) {
     return (
@@ -70,7 +72,7 @@ export default function TicketDetailPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Title + badges */}
+        {/* Title + badges + status actions */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-3">
             {ticket.title}
@@ -81,6 +83,13 @@ export default function TicketDetailPage() {
             status={ticket.status}
             ticketType={ticket.ticket_type}
           />
+          <div className="mt-3">
+            <StatusActions
+              ticketId={ticket.id}
+              currentStatus={ticket.status}
+              onStatusChange={loadTicket}
+            />
+          </div>
         </div>
 
         {/* Description */}

@@ -6,6 +6,7 @@ module Api
         by_channel: Ticket.group(:original_channel).count,
         by_type: Ticket.group(:ticket_type).count,
         by_status: Ticket.group(:status).count,
+        by_priority: Ticket.group(:priority).count,
         top_reporters: top_reporters
       }
     end
