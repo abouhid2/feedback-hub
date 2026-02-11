@@ -33,6 +33,17 @@ Rails.application.routes.draw do
     resource :metrics, only: [] do
       get :summary
     end
+
+    resources :dead_letter_jobs, only: [:index] do
+      collection do
+        post :force_fail
+        get :force_fail_status
+      end
+      member do
+        patch :resolve
+        post :retry, to: "dead_letter_jobs#retry_job"
+      end
+    end
   end
 
   # Health check

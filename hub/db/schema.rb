@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_10_235205) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_11_223333) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -40,6 +40,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_10_235205) do
     t.datetime "updated_at", null: false
     t.index ["status"], name: "index_changelog_entries_on_status"
     t.index ["ticket_id"], name: "index_changelog_entries_on_ticket_id"
+  end
+
+  create_table "dead_letter_jobs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "backtrace"
+    t.datetime "created_at", null: false
+    t.string "error_class", null: false
+    t.text "error_message", null: false
+    t.datetime "failed_at", null: false
+    t.jsonb "job_args", default: []
+    t.string "job_class", null: false
+    t.string "queue"
+    t.string "status", default: "unresolved", null: false
+    t.datetime "updated_at", null: false
+    t.index ["failed_at"], name: "index_dead_letter_jobs_on_failed_at"
+    t.index ["job_class"], name: "index_dead_letter_jobs_on_job_class"
+    t.index ["status"], name: "index_dead_letter_jobs_on_status"
   end
 
   create_table "notifications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

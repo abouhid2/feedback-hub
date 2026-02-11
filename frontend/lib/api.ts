@@ -206,3 +206,43 @@ export function fetchNotifications(filters?: { status?: string; channel?: string
   if (filters?.channel && filters.channel !== "all") params.channel = filters.channel;
   return request<Notification[]>("/api/notifications", Object.keys(params).length > 0 ? params : undefined);
 }
+
+// Dead Letter Jobs
+export interface DeadLetterJob {
+  id: string;
+  job_class: string;
+  job_args: unknown[];
+  error_class: string;
+  error_message: string;
+  queue: string | null;
+  failed_at: string;
+  status: string;
+  created_at: string;
+}
+
+export function fetchDeadLetterJobs(status?: string): Promise<DeadLetterJob[]> {
+  const params: Record<string, string> = {};
+  if (status && status !== "all") params.status = status;
+  return request<DeadLetterJob[]>("/api/dead_letter_jobs", Object.keys(params).length > 0 ? params : undefined);
+}
+
+export function resolveDeadLetterJob(id: string): Promise<DeadLetterJob> {
+  return mutate<DeadLetterJob>(`/api/dead_letter_jobs/${id}/resolve`, "PATCH");
+}
+
+export function retryDeadLetterJob(id: string): Promise<DeadLetterJob> {
+  return mutate<DeadLetterJob>(`/api/dead_letter_jobs/${id}/retry`, "POST");
+}
+
+export interface ForceFailStatus {
+  job_class: string;
+  armed: boolean;
+}
+
+export function fetchForceFailStatus(): Promise<ForceFailStatus[]> {
+  return request<ForceFailStatus[]>("/api/dead_letter_jobs/force_fail_status");
+}
+
+export function toggleForceFail(jobClass: string): Promise<{ job_class: string; armed: boolean }> {
+  return mutate<{ job_class: string; armed: boolean }>("/api/dead_letter_jobs/force_fail", "POST", { job_class: jobClass });
+}

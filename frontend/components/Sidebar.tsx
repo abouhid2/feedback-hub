@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/batch-reviews", label: "Batch Reviews" },
   { href: "/notifications", label: "Notifications" },
   { href: "/metrics", label: "Metrics" },
+  { href: "/dead-letters", label: "Dead Letters" },
 ];
 
 const CHANNELS = [

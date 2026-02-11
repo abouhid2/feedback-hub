@@ -15,7 +15,7 @@ module Api
     rescue ChangelogGeneratorService::InvalidTicketStatus => e
       render json: { error: e.message }, status: :unprocessable_entity
     rescue ChangelogGeneratorService::AiApiError => e
-      Rails.logger.error("Changelog AI error: #{e.message}")
+      StructuredLogger.instance.error("Changelog AI error", service: "changelog_generator", ticket_id: @ticket.id, error: e.message)
       message = if e.message.include?("rate_limit") || e.message.include?("429") || e.message.include?("cooldown")
                   "OpenAI rate limit reached. Please wait a minute and try again."
                 else

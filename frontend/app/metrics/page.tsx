@@ -173,7 +173,6 @@ export default function MetricsPage() {
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
-                      label={({ name, value }) => `${name} (${value})`}
                       className="cursor-pointer"
                       onClick={(data) => navigateToFiltered("channel", data.name)}
                     >
@@ -262,7 +261,6 @@ export default function MetricsPage() {
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
-                      label={({ name, value }) => `${name} (${value})`}
                       className="cursor-pointer"
                       onClick={(data) => navigateToFiltered("status", data.name)}
                     >
