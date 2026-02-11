@@ -50,15 +50,15 @@
 - [x] `POST /webhooks/slack` — slash command + Slack workflow form
   - [x] Parse structured form fields (Reporter, Priority, Description, etc.)
   - [x] Idempotency via Slack event_id / message ts
-  - [ ] HMAC signature verification (stubbed — requires real API secrets)
+  - [x] HMAC signature verification (WebhookVerifierService — `v0:timestamp:body` + SHA256)
 - [x] `POST /webhooks/intercom` — new conversation webhook
   - [x] Extract conversation_id, user metadata, message body
   - [x] Idempotency via conversation_id
-  - [ ] HMAC signature verification (stubbed)
+  - [x] HMAC signature verification (WebhookVerifierService — `X-Hub-Signature` + SHA256)
 - [x] `POST /webhooks/whatsapp` — incoming message via WhatsApp Business API
   - [x] Handle text messages
   - [x] Idempotency via message_id
-  - [ ] Signature verification (stubbed)
+  - [x] Signature verification (WebhookVerifierService — `X-Hub-Signature-256` + SHA256)
 - [ ] `POST /api/tickets` — In-App "Report a Bug" + Internal Backoffice manual entry
 - [x] Design the `IngestionService` — normalizes any source into a canonical Ticket
 - [x] Design deduplication strategy:
@@ -308,6 +308,7 @@
 | 5 | Notion Sync (Phase 5) | ✅ Done (rate limit handling + poll scheduler — RED→GREEN TDD, 137 total specs) |
 | 5.1 | WhatsApp 24h Window (Phase 7) | ✅ Done (WhatsappDeliveryService + session/template logic, 144 total specs) |
 | 5.2 | Lifecycle Hooks (Phase 7.5) | ✅ Done (wired ingestion→triage→sync→poll chain, 149 total specs) |
+| 5.4 | Webhook Security (Phase 8) | ✅ Done (HMAC verification on all 3 webhooks — RED→GREEN TDD, 162 total specs) |
 | 6 | Changelog + Notifications (Phases 6-7) | Services built via TDD (Phase 3.5), approve endpoint done |
 | 7 | API + Frontend (Phases 8-9) | ✅ Done (Phase 8 complete — all 13 API endpoints) |
 | 8 | Diagrams + Edge Cases (Phases 10-11) | Not started |

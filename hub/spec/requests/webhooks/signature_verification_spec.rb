@@ -52,13 +52,15 @@ RSpec.describe "Webhook Signature Verification", type: :request do
   describe "POST /webhooks/intercom" do
     let(:payload) do
       {
-        type: "conversation.user.created",
+        topic: "conversation.user.created",
         data: {
           item: {
             id: "INTERCOM-#{SecureRandom.hex(4)}",
             type: "conversation",
-            user: { email: "user@test.com", name: "Test User" },
-            conversation_message: { body: "Need help with login" }
+            source: {
+              body: "Need help with login",
+              author: { id: "123", name: "Test User", email: "user@test.com" }
+            }
           }
         }
       }
