@@ -74,6 +74,18 @@ export const EVENT_ICONS: Record<string, string> = {
   ai_triaged: "\u{1F916}",
 };
 
+export const CHANGELOG_STATUS_COLORS: Record<string, string> = {
+  draft: "bg-amber-100 text-amber-800 border-amber-300",
+  approved: "bg-green-100 text-green-800 border-green-300",
+  rejected: "bg-gray-100 text-gray-500 border-gray-300",
+};
+
+export const CHANGELOG_STATUS_LABELS: Record<string, string> = {
+  draft: "Draft \u2014 Pending Review",
+  approved: "Approved",
+  rejected: "Rejected",
+};
+
 export function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const seconds = Math.floor(diff / 1000);

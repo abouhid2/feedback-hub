@@ -7,6 +7,7 @@ import { TicketDetail } from "../../../lib/types";
 import { fetchTicket } from "../../../lib/api";
 import TicketBadges from "../../../components/ticket-detail/TicketBadges";
 import AITriageCard from "../../../components/ticket-detail/AITriageCard";
+import ChangelogReview from "../../../components/ticket-detail/ChangelogReview";
 import TicketTimeline from "../../../components/ticket-detail/TicketTimeline";
 import DataComparison from "../../../components/ticket-detail/DataComparison";
 import SourcesList from "../../../components/ticket-detail/SourcesList";
@@ -135,6 +136,8 @@ export default function TicketDetailPage() {
           aiSuggestedPriority={ticket.ai_suggested_priority}
           enrichmentStatus={ticket.enrichment_status}
         />
+
+        <ChangelogReview ticketId={ticket.id} ticketStatus={ticket.status} />
 
         <TicketTimeline events={ticket.events} />
 

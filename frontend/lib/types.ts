@@ -25,6 +25,18 @@ export interface TicketEvent {
   created_at: string;
 }
 
+export interface ChangelogEntry {
+  id: string;
+  ticket_id: string;
+  content: string;
+  status: string;
+  ai_model: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TicketDetail extends Ticket {
   description: string | null;
   metadata: Record<string, unknown> | null;

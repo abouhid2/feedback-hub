@@ -67,4 +67,29 @@ describe("Dashboard — ticket list", () => {
     const link2 = await screen.findByRole("link", { name: /Add dark mode/i });
     expect(link2).toHaveAttribute("href", "/tickets/def-456");
   });
+
+  it("renders status filter buttons", async () => {
+    render(<Dashboard />);
+
+    await screen.findByRole("link", { name: /Login button broken/i });
+
+    expect(screen.getByRole("button", { name: "All statuses" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "In Progress" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Resolved" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Closed" })).toBeInTheDocument();
+  });
+
+  it("renders priority filter buttons", async () => {
+    render(<Dashboard />);
+
+    await screen.findByRole("link", { name: /Login button broken/i });
+
+    expect(screen.getByRole("button", { name: "All priorities" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "P0 Critical" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "P1 High" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "P2 Medium" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "P3 Normal" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "P4 Low" })).toBeInTheDocument();
+  });
 });

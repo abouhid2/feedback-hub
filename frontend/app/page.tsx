@@ -14,16 +14,39 @@ import {
   timeAgo,
 } from "../lib/constants";
 
+interface Filters {
+  channel: string;
+  status: string;
+  priority: string;
+}
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  { value: "open", label: "Open" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "resolved", label: "Resolved" },
+  { value: "closed", label: "Closed" },
+];
+
+const PRIORITY_OPTIONS = [
+  { value: "all", label: "All priorities" },
+  { value: "0", label: "P0 Critical" },
+  { value: "1", label: "P1 High" },
+  { value: "2", label: "P2 Medium" },
+  { value: "3", label: "P3 Normal" },
+  { value: "4", label: "P4 Low" },
+];
+
 export default function Dashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [filter, setFilter] = useState<string>("all");
+  const [filters, setFilters] = useState<Filters>({ channel: "all", status: "all", priority: "all" });
 
   const fetchTickets = useCallback(async () => {
     try {
-      const data = await apiFetchTickets(filter);
+      const data = await apiFetchTickets(filters);
       setTickets(data);
       setLastUpdated(new Date());
       setError(null);
@@ -32,13 +55,17 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filters]);
 
   useEffect(() => {
     fetchTickets();
     const interval = setInterval(fetchTickets, 5000);
     return () => clearInterval(interval);
   }, [fetchTickets]);
+
+  const updateFilter = (key: keyof Filters, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
 
   const stats = {
     total: tickets.length,
@@ -83,19 +110,53 @@ export default function Dashboard() {
           <StatCard label="Critical (P0-P1)" value={stats.critical} color="text-red-600" />
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-2 mb-4">
+        {/* Channel Filters */}
+        <div className="flex flex-wrap gap-2 mb-2">
           {["all", "slack", "intercom", "whatsapp"].map((ch) => (
             <button
               key={ch}
-              onClick={() => setFilter(ch)}
+              onClick={() => updateFilter("channel", ch)}
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                filter === ch
+                filters.channel === ch
                   ? "bg-gray-900 text-white"
                   : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
               }`}
             >
               {ch === "all" ? "All channels" : ch.charAt(0).toUpperCase() + ch.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Status Filters */}
+        <div className="flex flex-wrap gap-2 mb-2">
+          {STATUS_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => updateFilter("status", opt.value)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                filters.status === opt.value
+                  ? "bg-gray-900 text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Priority Filters */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {PRIORITY_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => updateFilter("priority", opt.value)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                filters.priority === opt.value
+                  ? "bg-gray-900 text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+              }`}
+            >
+              {opt.label}
             </button>
           ))}
         </div>
