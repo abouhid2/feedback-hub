@@ -1,76 +1,18 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-
-interface Ticket {
-  id: string;
-  title: string;
-  ticket_type: string;
-  priority: number;
-  status: string;
-  original_channel: string;
-  reporter: { name: string; email: string | null } | null;
-  tags: string[];
-  created_at: string;
-  updated_at: string;
-}
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
-const PRIORITY_COLORS: Record<number, string> = {
-  0: "bg-red-600 text-white",
-  1: "bg-orange-500 text-white",
-  2: "bg-yellow-500 text-black",
-  3: "bg-blue-500 text-white",
-  4: "bg-gray-400 text-white",
-  5: "bg-gray-300 text-gray-600",
-};
-
-const PRIORITY_LABELS: Record<number, string> = {
-  0: "P0 Critical",
-  1: "P1 High",
-  2: "P2 Medium",
-  3: "P3 Normal",
-  4: "P4 Low",
-  5: "P5 Trivial",
-};
-
-const CHANNEL_ICONS: Record<string, string> = {
-  slack: "#",
-  intercom: "\u{1F4AC}",
-  whatsapp: "\u{1F4F1}",
-};
-
-const CHANNEL_COLORS: Record<string, string> = {
-  slack: "bg-purple-100 text-purple-800",
-  intercom: "bg-blue-100 text-blue-800",
-  whatsapp: "bg-green-100 text-green-800",
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  bug: "Bug",
-  feature_request: "Feature",
-  question: "Question",
-  incident: "Incident",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  open: "bg-emerald-100 text-emerald-800",
-  in_progress: "bg-blue-100 text-blue-800",
-  resolved: "bg-gray-100 text-gray-600",
-  closed: "bg-gray-200 text-gray-500",
-};
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
+import Link from "next/link";
+import { Ticket } from "../lib/types";
+import { fetchTickets as apiFetchTickets } from "../lib/api";
+import {
+  PRIORITY_COLORS,
+  PRIORITY_LABELS,
+  CHANNEL_ICONS,
+  CHANNEL_COLORS,
+  TYPE_LABELS,
+  STATUS_COLORS,
+  timeAgo,
+} from "../lib/constants";
 
 export default function Dashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -81,12 +23,7 @@ export default function Dashboard() {
 
   const fetchTickets = useCallback(async () => {
     try {
-      const url = new URL(`${API_URL}/api/tickets`);
-      if (filter !== "all") url.searchParams.set("channel", filter);
-
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await apiFetchTickets(filter);
       setTickets(data);
       setLastUpdated(new Date());
       setError(null);
@@ -247,7 +184,12 @@ export default function Dashboard() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900 max-w-md truncate">
-                      {ticket.title}
+                      <Link
+                        href={`/tickets/${ticket.id}`}
+                        className="hover:text-blue-600 hover:underline"
+                      >
+                        {ticket.title}
+                      </Link>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {TYPE_LABELS[ticket.ticket_type] || ticket.ticket_type}
