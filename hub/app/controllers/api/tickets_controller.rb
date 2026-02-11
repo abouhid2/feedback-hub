@@ -82,6 +82,11 @@ module Api
       serialize_ticket(ticket).merge(
         description: ticket.description,
         metadata: ticket.metadata,
+        ai_suggested_type: ticket.ai_suggested_type,
+        ai_suggested_priority: ticket.ai_suggested_priority,
+        ai_summary: ticket.ai_summary,
+        enrichment_status: ticket.enrichment_status,
+        notion_page_id: ticket.notion_page_id,
         sources: ticket.ticket_sources.map { |s|
           { platform: s.platform, external_id: s.external_id, external_url: s.external_url }
         },
