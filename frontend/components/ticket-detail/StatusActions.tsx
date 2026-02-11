@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { simulateStatus } from "../../lib/api";
+import Toast from "../Toast";
 
 interface StatusActionsProps {
   ticketId: string;
@@ -30,6 +31,7 @@ const TRANSITIONS: Record<string, { label: string; status: string }[]> = {
 
 export default function StatusActions({ ticketId, currentStatus, onStatusChange }: StatusActionsProps) {
   const [loading, setLoading] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
 
   const transitions = TRANSITIONS[currentStatus] || [];
   if (transitions.length === 0) return null;
@@ -38,27 +40,33 @@ export default function StatusActions({ ticketId, currentStatus, onStatusChange 
     setLoading(status);
     try {
       await simulateStatus(ticketId, status);
+      setToast({ message: `Status changed to ${status}`, type: "success" });
       onStatusChange();
-    } catch {
-      // ignore
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Failed to update status", type: "error" });
     } finally {
       setLoading(null);
     }
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-medium text-gray-500">Actions:</span>
-      {transitions.map((t) => (
-        <button
-          key={t.status}
-          onClick={() => handleTransition(t.status)}
-          disabled={loading !== null}
-          className="btn-secondary px-3 py-1.5 disabled:opacity-50"
-        >
-          {loading === t.status ? "Updating..." : t.label}
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-gray-500">Actions:</span>
+        {transitions.map((t) => (
+          <button
+            key={t.status}
+            onClick={() => handleTransition(t.status)}
+            disabled={loading !== null}
+            className="btn-secondary px-3 py-1.5 disabled:opacity-50"
+          >
+            {loading === t.status ? "Updating..." : t.label}
+          </button>
+        ))}
+      </div>
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
+    </>
   );
 }

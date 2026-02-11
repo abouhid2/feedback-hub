@@ -13,6 +13,7 @@ import {
   CHANGELOG_STATUS_COLORS,
   CHANGELOG_STATUS_LABELS,
 } from "../../lib/constants";
+import Toast from "../Toast";
 
 interface Props {
   ticketId: string;
@@ -27,6 +28,7 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,6 +46,9 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
     try {
       const entry = await generateChangelog(ticketId);
       setChangelog(entry);
+      setToast({ message: "Changelog generated successfully", type: "success" });
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Failed to generate changelog", type: "error" });
     } finally {
       setActionLoading(false);
     }
@@ -54,6 +59,9 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
     try {
       const entry = await approveChangelog(ticketId, "admin@mainder.com");
       setChangelog(entry);
+      setToast({ message: "Changelog approved", type: "success" });
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Failed to approve", type: "error" });
     } finally {
       setActionLoading(false);
     }
@@ -67,6 +75,9 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
       setChangelog(entry);
       setShowRejectForm(false);
       setRejectReason("");
+      setToast({ message: "Changelog rejected", type: "success" });
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Failed to reject", type: "error" });
     } finally {
       setActionLoading(false);
     }
@@ -78,6 +89,9 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
       const entry = await updateChangelogDraft(ticketId, editContent);
       setChangelog(entry);
       setEditing(false);
+      setToast({ message: "Draft updated", type: "success" });
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Failed to save", type: "error" });
     } finally {
       setActionLoading(false);
     }
@@ -88,6 +102,10 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
     setEditing(true);
     setShowRejectForm(false);
   };
+
+  const toastEl = toast && (
+    <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+  );
 
   if (loading) {
     return (
@@ -105,27 +123,30 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
 
   // No changelog and ticket is not resolved — don't render
   if (!changelog && ticketStatus !== "resolved") {
-    return null;
+    return <>{toastEl}</>;
   }
 
   // No changelog but ticket is resolved — show generate button
   if (!changelog) {
     return (
-      <div className="card">
-        <h2 className="section-title mb-3">
-          Changelog Review
-        </h2>
-        <p className="text-sm text-gray-600 mb-3">
-          This ticket is resolved. Generate an AI changelog entry for review.
-        </p>
-        <button
-          onClick={handleGenerate}
-          disabled={actionLoading}
-          className="btn-primary px-4 py-2"
-        >
-          {actionLoading ? "Generating..." : "Generate Changelog"}
-        </button>
-      </div>
+      <>
+        <div className="card">
+          <h2 className="section-title mb-3">
+            Changelog Review
+          </h2>
+          <p className="text-sm text-gray-600 mb-3">
+            This ticket is resolved. Generate an AI changelog entry for review.
+          </p>
+          <button
+            onClick={handleGenerate}
+            disabled={actionLoading}
+            className="btn-primary px-4 py-2"
+          >
+            {actionLoading ? "Generating..." : "Generate Changelog"}
+          </button>
+        </div>
+        {toastEl}
+      </>
     );
   }
 
@@ -135,32 +156,57 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
   // Approved state
   if (changelog.status === "approved") {
     return (
-      <div className="card-success">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="section-title">
-            Changelog Review
-          </h2>
-          <span className={`badge ${statusColor}`}>
-            {statusLabel}
-          </span>
+      <>
+        <div className="card-success">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="section-title">
+              Changelog Review
+            </h2>
+            <span className={`badge ${statusColor}`}>
+              {statusLabel}
+            </span>
+          </div>
+          <p className="text-sm text-gray-800 whitespace-pre-wrap mb-3">
+            {changelog.content}
+          </p>
+          <p className="text-xs text-gray-500">
+            Approved by {changelog.approved_by} on{" "}
+            {changelog.approved_at
+              ? new Date(changelog.approved_at).toLocaleString()
+              : "—"}
+          </p>
         </div>
-        <p className="text-sm text-gray-800 whitespace-pre-wrap mb-3">
-          {changelog.content}
-        </p>
-        <p className="text-xs text-gray-500">
-          Approved by {changelog.approved_by} on{" "}
-          {changelog.approved_at
-            ? new Date(changelog.approved_at).toLocaleString()
-            : "—"}
-        </p>
-      </div>
+        {toastEl}
+      </>
     );
   }
 
   // Rejected state
   if (changelog.status === "rejected") {
     return (
-      <div className="card-muted">
+      <>
+        <div className="card-muted">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="section-title">
+              Changelog Review
+            </h2>
+            <span className={`badge ${statusColor}`}>
+              {statusLabel}
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 whitespace-pre-wrap">
+            {changelog.content}
+          </p>
+        </div>
+        {toastEl}
+      </>
+    );
+  }
+
+  // Draft state
+  return (
+    <>
+      <div className="card-warning">
         <div className="flex items-center justify-between mb-3">
           <h2 className="section-title">
             Changelog Review
@@ -169,111 +215,95 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
             {statusLabel}
           </span>
         </div>
-        <p className="text-sm text-gray-500 whitespace-pre-wrap">
-          {changelog.content}
-        </p>
-      </div>
-    );
-  }
 
-  // Draft state
-  return (
-    <div className="card-warning">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="section-title">
-          Changelog Review
-        </h2>
-        <span className={`badge ${statusColor}`}>
-          {statusLabel}
-        </span>
-      </div>
-
-      <div className="alert-warning mb-3">
-        <p className="text-xs text-amber-800 font-medium">
-          This AI-generated changelog entry requires human review before publishing.
-        </p>
-      </div>
-
-      {editing ? (
-        <div className="space-y-3">
-          <textarea
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            rows={5}
-            className="input-field"
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={handleSaveEdit}
-              disabled={actionLoading}
-              className="btn-primary px-3 py-1.5"
-            >
-              {actionLoading ? "Saving..." : "Save"}
-            </button>
-            <button
-              onClick={() => setEditing(false)}
-              className="btn-secondary px-3 py-1.5"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : showRejectForm ? (
-        <div className="space-y-3">
-          <p className="text-sm text-gray-800 whitespace-pre-wrap mb-2">
-            {changelog.content}
+        <div className="alert-warning mb-3">
+          <p className="text-xs text-amber-800 font-medium">
+            This AI-generated changelog entry requires human review before publishing.
           </p>
-          <input
-            type="text"
-            placeholder="Reason for rejection..."
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            className="input-field focus:ring-red-500"
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={handleReject}
-              disabled={actionLoading || !rejectReason.trim()}
-              className="btn-reject px-3 py-1.5 disabled:opacity-50"
-            >
-              {actionLoading ? "Rejecting..." : "Confirm Reject"}
-            </button>
-            <button
-              onClick={() => { setShowRejectForm(false); setRejectReason(""); }}
-              className="btn-secondary px-3 py-1.5"
-            >
-              Cancel
-            </button>
-          </div>
         </div>
-      ) : (
-        <>
-          <p className="text-sm text-gray-800 whitespace-pre-wrap mb-4">
-            {changelog.content}
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={startEditing}
-              className="btn-secondary px-3 py-1.5 text-gray-700"
-            >
-              Edit
-            </button>
-            <button
-              onClick={handleApprove}
-              disabled={actionLoading}
-              className="btn-approve px-3 py-1.5"
-            >
-              {actionLoading ? "Approving..." : "Approve"}
-            </button>
-            <button
-              onClick={() => setShowRejectForm(true)}
-              className="btn-reject px-3 py-1.5"
-            >
-              Reject
-            </button>
+
+        {editing ? (
+          <div className="space-y-3">
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              rows={5}
+              className="input-field"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveEdit}
+                disabled={actionLoading}
+                className="btn-primary px-3 py-1.5"
+              >
+                {actionLoading ? "Saving..." : "Save"}
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                className="btn-secondary px-3 py-1.5"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-        </>
-      )}
-    </div>
+        ) : showRejectForm ? (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-800 whitespace-pre-wrap mb-2">
+              {changelog.content}
+            </p>
+            <input
+              type="text"
+              placeholder="Reason for rejection..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              className="input-field focus:ring-red-500"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleReject}
+                disabled={actionLoading || !rejectReason.trim()}
+                className="btn-reject px-3 py-1.5 disabled:opacity-50"
+              >
+                {actionLoading ? "Rejecting..." : "Confirm Reject"}
+              </button>
+              <button
+                onClick={() => { setShowRejectForm(false); setRejectReason(""); }}
+                className="btn-secondary px-3 py-1.5"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-gray-800 whitespace-pre-wrap mb-4">
+              {changelog.content}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={startEditing}
+                className="btn-secondary px-3 py-1.5 text-gray-700"
+              >
+                Edit
+              </button>
+              <button
+                onClick={handleApprove}
+                disabled={actionLoading}
+                className="btn-approve px-3 py-1.5"
+              >
+                {actionLoading ? "Approving..." : "Approve"}
+              </button>
+              <button
+                onClick={() => setShowRejectForm(true)}
+                className="btn-reject px-3 py-1.5"
+              >
+                Reject
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+      {toastEl}
+    </>
   );
 }

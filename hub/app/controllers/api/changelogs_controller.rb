@@ -14,6 +14,9 @@ module Api
       render json: serialize_entry(entry), status: :created
     rescue ChangelogGeneratorService::InvalidTicketStatus => e
       render json: { error: e.message }, status: :unprocessable_entity
+    rescue ChangelogGeneratorService::AiApiError => e
+      Rails.logger.error("Changelog AI error: #{e.message}")
+      render json: { error: "AI service temporarily unavailable. Please try again in a few seconds." }, status: :service_unavailable
     end
 
     def approve

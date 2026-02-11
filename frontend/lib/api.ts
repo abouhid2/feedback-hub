@@ -21,7 +21,10 @@ async function mutate<T>(path: string, method: string, body?: Record<string, unk
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error || `HTTP ${res.status}`);
+  }
   return res.json();
 }
 

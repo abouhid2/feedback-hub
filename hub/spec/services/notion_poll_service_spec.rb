@@ -49,9 +49,9 @@ RSpec.describe NotionPollService, type: :service do
       expect(event.actor_type).to eq("notion_sync")
     end
 
-    it "enqueues ChangelogGeneratorJob when ticket becomes resolved" do
+    it "does not auto-enqueue ChangelogGeneratorJob (user-initiated only)" do
       described_class.poll
-      expect(ChangelogGeneratorJob).to have_been_enqueued.with(ticket.id)
+      expect(ChangelogGeneratorJob).not_to have_been_enqueued
     end
 
     it "updates last_poll_timestamp in Rails.cache" do

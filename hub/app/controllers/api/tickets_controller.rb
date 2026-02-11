@@ -90,8 +90,6 @@ module Api
         data: { old_status: old_status, new_status: new_status }
       )
 
-      ChangelogGeneratorJob.perform_later(ticket.id) if new_status == "resolved"
-
       render json: serialize_ticket_detail(ticket.reload)
     rescue ActiveRecord::RecordNotFound
       render json: { error: "Ticket not found" }, status: :not_found

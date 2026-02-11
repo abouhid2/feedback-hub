@@ -52,7 +52,7 @@ class AiTriageService
     key.present? && key != "test-key"
   end
 
-  def request_openai
+  def request_openai(retries: 2)
     uri = URI(OPENAI_URL)
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = true
@@ -71,6 +71,13 @@ class AiTriageService
     }.to_json
 
     response = http.request(request)
+
+    if response.code == "429" && retries > 0
+      wait = response["Retry-After"]&.to_i || 20
+      sleep(wait)
+      return request_openai(retries: retries - 1)
+    end
+
     raise AiApiError, "OpenAI returned #{response.code}: #{response.body}" unless response.code == "200"
 
     JSON.parse(response.body)
