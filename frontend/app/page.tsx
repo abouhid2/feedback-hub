@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Ticket } from "../lib/types";
 import { fetchTickets as apiFetchTickets, fetchMetrics } from "../lib/api";
 import StatsCards from "../components/dashboard/StatsCards";
@@ -11,14 +12,21 @@ interface Filters {
   channel: string;
   status: string;
   priority: string;
+  type: string;
 }
 
 export default function Dashboard() {
+  const searchParams = useSearchParams();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [filters, setFilters] = useState<Filters>({ channel: "all", status: "all", priority: "all" });
+  const [filters, setFilters] = useState<Filters>({
+    channel: searchParams.get("channel") || "all",
+    status: searchParams.get("status") || "all",
+    priority: searchParams.get("priority") || "all",
+    type: searchParams.get("type") || "all",
+  });
   const [stats, setStats] = useState({ total: 0, slack: 0, intercom: 0, whatsapp: 0, critical: 0 });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -63,12 +71,8 @@ export default function Dashboard() {
       <header className="header-sticky">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">
-              Mainder Feedback Hub
-            </h1>
-            <p className="text-sm text-white/70">
-              Multi-channel feedback ingestion &mdash; live prototype
-            </p>
+            <h1 className="text-2xl font-bold text-white">Mainder Feedback Hub</h1>
+            <p className="text-sm text-white/70">Multi-channel feedback ingestion &mdash; live prototype</p>
           </div>
           <div className="text-right text-sm text-white/70">
             {lastUpdated && (

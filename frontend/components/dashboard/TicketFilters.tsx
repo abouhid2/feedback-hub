@@ -2,6 +2,7 @@ interface Filters {
   channel: string;
   status: string;
   priority: string;
+  type: string;
 }
 
 interface TicketFiltersProps {
@@ -24,6 +25,14 @@ const PRIORITY_OPTIONS = [
   { value: "2", label: "P2 Medium" },
   { value: "3", label: "P3 Normal" },
   { value: "4", label: "P4 Low" },
+];
+
+const TYPE_OPTIONS = [
+  { value: "all", label: "All types" },
+  { value: "bug", label: "Bug" },
+  { value: "feature_request", label: "Feature" },
+  { value: "question", label: "Question" },
+  { value: "incident", label: "Incident" },
 ];
 
 export default function TicketFilters({ filters, onFilterChange }: TicketFiltersProps) {
@@ -62,6 +71,18 @@ export default function TicketFilters({ filters, onFilterChange }: TicketFilters
           className="input-field w-auto"
         >
           {PRIORITY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="text-xs font-medium text-gray-500 mb-1 block">Type</label>
+        <select
+          value={filters.type}
+          onChange={(e) => onFilterChange("type", e.target.value)}
+          className="input-field w-auto"
+        >
+          {TYPE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>

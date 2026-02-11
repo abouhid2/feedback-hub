@@ -8,6 +8,7 @@ module Api
         .by_status(params[:status])
         .by_channel(params[:channel])
         .by_priority(params[:priority])
+        .by_type(params[:type])
         .recent
 
       total = base.count

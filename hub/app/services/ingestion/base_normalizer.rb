@@ -55,11 +55,7 @@ module Ingestion
     end
 
     def infer_ticket_type(text)
-      text_lower = text.to_s.downcase
-      return "incident" if text_lower.match?(/incident|outage|down|caida/)
-      return "feature_request" if text_lower.match?(/feature|request|mejora|suggest/)
-      return "question" if text_lower.match?(/\?|pregunta|question|how to|c[oó]mo/)
-      "bug"
+      TicketTypeInferenceService.infer(text)
     end
   end
 end
