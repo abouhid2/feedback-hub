@@ -51,38 +51,66 @@ class NotificationDispatchService
   end
 
   def find_recipient!
-    identity = @ticket.reporter&.reporter_identities&.find_by(platform: @ticket.original_channel)
-    raise NoIdentityFound, "No identity found for reporter on #{@ticket.original_channel}" unless identity
+    @identity = @ticket.reporter&.reporter_identities&.find_by(platform: @ticket.original_channel)
+    raise NoIdentityFound, "No identity found for reporter on #{@ticket.original_channel}" unless @identity
 
-    identity.platform_user_id
+    @identity.platform_user_id
   end
 
   def deliver(notification)
+    if notification.channel == "whatsapp"
+      deliver_via_whatsapp(notification)
+    else
+      deliver_generic(notification)
+    end
+  end
+
+  def deliver_via_whatsapp(notification)
+    result = WhatsappDeliveryService.deliver(@entry, @identity)
+
+    if result[:status] == :sent
+      notification.update!(status: "sent", delivered_at: Time.current)
+      create_sent_event(notification)
+    elsif result[:status] == :channel_restricted
+      notification.update!(status: "failed", retry_count: notification.retry_count + 1, last_error: "channel_restricted: #{result[:error]}")
+      create_failed_event(notification, "channel_restricted: #{result[:error]}")
+    else
+      notification.update!(status: "failed", retry_count: notification.retry_count + 1, last_error: result[:error])
+      create_failed_event(notification, result[:error])
+      NotificationRetryJob.perform_later(notification.id)
+    end
+  end
+
+  def deliver_generic(notification)
     response = send_to_platform(notification)
 
     if response&.code == "200"
       notification.update!(status: "sent", delivered_at: Time.current)
-      @ticket.ticket_events.create!(
-        event_type: "notification_sent",
-        actor_type: "system",
-        actor_id: "notification_dispatch",
-        data: { notification_id: notification.id, channel: notification.channel }
-      )
+      create_sent_event(notification)
     else
       error_msg = response ? "#{response.code}: #{response.body}" : "No response"
-      notification.update!(
-        status: "failed",
-        retry_count: notification.retry_count + 1,
-        last_error: error_msg
-      )
-      @ticket.ticket_events.create!(
-        event_type: "notification_failed",
-        actor_type: "system",
-        actor_id: "notification_dispatch",
-        data: { notification_id: notification.id, error: error_msg }
-      )
+      notification.update!(status: "failed", retry_count: notification.retry_count + 1, last_error: error_msg)
+      create_failed_event(notification, error_msg)
       NotificationRetryJob.perform_later(notification.id)
     end
+  end
+
+  def create_sent_event(notification)
+    @ticket.ticket_events.create!(
+      event_type: "notification_sent",
+      actor_type: "system",
+      actor_id: "notification_dispatch",
+      data: { notification_id: notification.id, channel: notification.channel }
+    )
+  end
+
+  def create_failed_event(notification, error_msg)
+    @ticket.ticket_events.create!(
+      event_type: "notification_failed",
+      actor_type: "system",
+      actor_id: "notification_dispatch",
+      data: { notification_id: notification.id, error: error_msg }
+    )
   end
 
   def send_to_platform(notification)

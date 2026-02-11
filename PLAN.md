@@ -177,10 +177,12 @@
   - Intercom: Post reply in conversation via Intercom API
   - WhatsApp: Send template message (pre-approved) via WhatsApp Business API
   - In-App: Store notification for display in Mainder platform
-- [ ] WhatsApp 24h window handling:
-  - If < 24h since last user message → send session message
+- [x] WhatsApp 24h window handling:
+  - If < 24h since last user message → send session message (free-form text)
   - If > 24h → send pre-approved Template Message (e.g., "Your reported issue has been resolved: {summary}")
   - If template not available → mark notification as `channel_restricted`, log for manual follow-up
+  - `last_message_at` tracked on `reporter_identities` table
+  - `WhatsappDeliveryService` handles all 3 scenarios
 - [ ] Mass-resolution spam prevention:
   - If a single Notion task resolves N > 5 tickets, enter **"Review before Send" mode**
   - Queue all notifications with `status: :pending_batch_review`
