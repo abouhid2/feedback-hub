@@ -8,6 +8,9 @@ RSpec.describe NotificationDispatchService, type: :service do
 
   describe ".call" do
     before do
+      allow(ENV).to receive(:[]).and_call_original
+      allow(ENV).to receive(:[]).with("SLACK_BOT_TOKEN").and_return("xoxb-test-token")
+
       stub_request(:post, "https://slack.com/api/chat.postMessage")
         .to_return(status: 200, body: '{"ok":true}', headers: { "Content-Type" => "application/json" })
     end
@@ -82,6 +85,41 @@ RSpec.describe NotificationDispatchService, type: :service do
       it "raises NotApproved error" do
         expect { described_class.call(draft_entry) }
           .to raise_error(NotificationDispatchService::NotApproved)
+      end
+    end
+
+    context "when batch scenario applies (>5 approved in 5min window)" do
+      before do
+        # Create 6 approved entries within the batch window to trigger batch mode
+        6.times do
+          t = create(:ticket, :resolved, reporter: reporter, original_channel: "slack")
+          create(:changelog_entry, :approved, ticket: t, approved_at: 1.minute.ago)
+        end
+      end
+
+      it "creates notification with pending_batch_review status" do
+        notification = described_class.call(entry)
+        expect(notification.status).to eq("pending_batch_review")
+      end
+
+      it "does not deliver the notification" do
+        expect_any_instance_of(described_class).not_to receive(:deliver)
+        described_class.call(entry)
+      end
+    end
+
+    context "when batch threshold is not met" do
+      before do
+        # Only 3 approved entries — below threshold
+        3.times do
+          t = create(:ticket, :resolved, reporter: reporter, original_channel: "slack")
+          create(:changelog_entry, :approved, ticket: t, approved_at: 1.minute.ago)
+        end
+      end
+
+      it "creates notification with pending status and delivers" do
+        notification = described_class.call(entry)
+        expect(notification.status).to eq("sent")
       end
     end
   end
