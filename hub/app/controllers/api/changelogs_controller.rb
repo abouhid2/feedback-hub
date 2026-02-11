@@ -54,6 +54,29 @@ module Api
       render json: { error: e.message }, status: :unprocessable_entity
     end
 
+    def manual_create
+      return render json: { error: "Ticket must be resolved" }, status: :unprocessable_entity unless @ticket.status == "resolved"
+      return render json: { error: "Changelog entry already exists" }, status: :unprocessable_entity if @ticket.changelog_entries.exists?
+      return render json: { error: "Content is required" }, status: :unprocessable_entity if params[:content].blank?
+
+      entry = @ticket.changelog_entries.create!(
+        content: params[:content],
+        status: "draft",
+        ai_model: "manual",
+        ai_prompt_tokens: 0,
+        ai_completion_tokens: 0
+      )
+
+      @ticket.ticket_events.create!(
+        event_type: "changelog_drafted",
+        actor_type: "user",
+        actor_id: "manual",
+        data: { changelog_entry_id: entry.id }
+      )
+
+      render json: serialize_entry(entry), status: :created
+    end
+
     private
 
     def find_ticket

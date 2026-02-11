@@ -19,7 +19,7 @@ module Ingestion
 
       normalizer = normalizer_class.new(payload)
       ticket = normalizer.normalize
-      AiTriageJob.perform_later(ticket.id)
+      # AI triage is user-initiated only (avoids burning OpenAI quota from simulator)
       ticket
     end
 
