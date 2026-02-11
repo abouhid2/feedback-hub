@@ -14,6 +14,7 @@ class AiTriageService
 
   def call
     return :already_enriched if @ticket.enrichment_status == "completed"
+    return :no_api_key unless api_key_configured?
 
     response = request_openai
     parsed = parse_response(response)
@@ -45,6 +46,11 @@ class AiTriageService
   end
 
   private
+
+  def api_key_configured?
+    key = ENV.fetch("OPENAI_API_KEY", nil)
+    key.present? && key != "test-key"
+  end
 
   def request_openai
     uri = URI(OPENAI_URL)

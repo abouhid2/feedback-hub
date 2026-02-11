@@ -25,6 +25,9 @@ RSpec.describe AiTriageService, type: :service do
   end
 
   before do
+    allow(ENV).to receive(:fetch).and_call_original
+    allow(ENV).to receive(:fetch).with("OPENAI_API_KEY", nil).and_return("sk-real-test-key")
+
     stub_request(:post, "https://api.openai.com/v1/chat/completions")
       .to_return(
         status: 200,
