@@ -11,7 +11,7 @@ module Webhooks
 
       render json: { status: "ok", ticket_id: ticket.id }, status: :ok
     rescue StandardError => e
-      Rails.logger.error("Slack webhook error: #{e.message}")
+      StructuredLogger.instance.error("Webhook ingestion failed", service: "webhook", channel: "slack", error: e.message, error_class: e.class.name)
       render json: { error: e.message }, status: :unprocessable_entity
     end
 

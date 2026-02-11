@@ -23,7 +23,7 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [filters, setFilters] = useState<Filters>({
     channel: searchParams.get("channel") || "all",
-    status: searchParams.get("status") || "all",
+    status: searchParams.get("status") || "open",
     priority: searchParams.get("priority") || "all",
     type: searchParams.get("type") || "all",
   });
@@ -69,10 +69,9 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen">
       <header className="header-sticky">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 py-5 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Mainder Feedback Hub</h1>
-            <p className="text-sm text-white/70">Multi-channel feedback ingestion &mdash; live prototype</p>
+
           </div>
           <div className="text-right text-sm text-white/70">
             {lastUpdated && (

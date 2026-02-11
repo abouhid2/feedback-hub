@@ -59,7 +59,7 @@
   - [x] Handle text messages
   - [x] Idempotency via message_id
   - [x] Signature verification (WebhookVerifierService — `X-Hub-Signature-256` + SHA256)
-- [ ] `POST /api/tickets` — In-App "Report a Bug" + Internal Backoffice manual entry
+- [x] `POST /api/tickets` — In-App "Report a Bug" + Internal Backoffice manual entry
 - [x] Design the `IngestionService` — normalizes any source into a canonical Ticket
 - [x] Design deduplication strategy:
   - [x] Same-channel: unique constraint on (source_channel, external_id)
@@ -210,13 +210,13 @@
 - [x] `POST /api/batch_reviews/approve_all` — Approve all held notifications
 - [x] `POST /api/batch_reviews/approve_selected` — Approve selected notifications
 - [x] `POST /api/batch_reviews/reject_all` — Reject all held notifications
-- [x] `GET /api/metrics/summary` — Volume by source/type, top reporters, total count
+- [x] `GET /api/metrics/summary` — Volume by source/type/priority/status, top reporters, period filtering (24h/7d/30d)
 - [x] `POST /api/tickets` — Manual ticket creation (Backoffice) + created event
 - [x] `PATCH /api/tickets/:id` — Update ticket (status, priority, type) + status_changed event
 
 ---
 
-## Phase 9: Frontend Dashboard (Next.js) — Partially Done
+## Phase 9: Frontend Dashboard (Next.js) ✅ DONE
 
 > Simple internal tool mock.
 
@@ -225,23 +225,30 @@
   - [x] Channel badges (Slack/Intercom/WhatsApp)
   - [x] Stats: total tickets, per-channel counts, critical count (P0-P1)
   - [x] Live refresh indicator (green pulse dot)
-- [ ] **Ticket Detail View** — Shows:
+- [x] **Ticket Detail View** — Shows:
   - Normalized data vs raw source data
   - Timeline/event log (Reported → Triaged → Synced to Notion → Fixed → Notified)
-  - Notion page link
-  - Attachments
-- [ ] **AI Review Component** ("Release Valve") — Critical:
+  - AI triage card, sources list
+  - Data comparison (original vs normalized)
+- [x] **AI Review Component** ("Release Valve") — Critical:
   - Shows AI-generated changelog draft
   - Editable text area
-  - "Approve & Send" button to trigger notifications
-  - Warning banner about AI-generated content
-- [ ] **Batch Review View** — For mass-resolution scenarios
-  - List of pending notifications grouped by resolution
-  - "Approve All" / selective approval
-- [ ] **Metrics Dashboard** — Simple cards/charts:
-  - Ticket volume by source and type
-  - Average time to triage / time to resolution
-  - Top reporters
+  - "Approve & Send" / "Reject" buttons to trigger notifications
+  - StatusActions component for ticket lifecycle
+  - SimulateButtons + Toast notifications
+- [x] **Batch Review View** — For mass-resolution scenarios
+  - `/batch-reviews` page with pending notifications grouped by changelog entry
+  - "Approve All" / "Approve Selected" / "Reject All" with confirmation dialogs
+- [x] **Notification History** — Delivery status tracking
+  - `/notifications` page with status/channel filters
+  - Sidebar navigation
+- [x] **Metrics Dashboard** — recharts (PieChart, BarChart):
+  - Ticket volume by channel, type, priority, status
+  - Period filtering (24h / 7d / 30d)
+  - Top reporters table
+  - Clickable charts → filtered dashboard
+  - TicketTypeInferenceService (OpenAI in prod, regex fallback)
+  - Type filter added to dashboard
 
 ---
 
@@ -266,7 +273,7 @@
 - [ ] **PII & AI Privacy:** PiiScrubber before OpenAI calls, data minimization, encrypted storage
 - [ ] **Spam & Rate Limits:** Batch review queue for mass-resolutions, throttled Sidekiq queues per channel
 - [ ] **External dependency failures:** Sidekiq retry with exponential backoff, no data loss if Notion/OpenAI/Slack is down
-- [ ] **Observability:** Structured logging, Sidekiq dashboard, dead letter queue for failed jobs, error tracking (Sentry/similar)
+- [x] **Observability:** StructuredLogger (JSON output), JobLogging concern, DeadLetterHandlerJob, Sidekiq death handler, dead letter queue API + frontend page
 
 ---
 
@@ -299,7 +306,7 @@
 | 1 | Data Model (Phase 1) | ✅ Done |
 | 2 | Architecture Overview (Phase 2) | ✅ Done |
 | 3 | Ingestion (Phase 3) | ✅ Done (prototype) |
-| 3.5 | TDD Core Services (Phase 3.5) | ✅ Done (94 specs, 6 services, 5 jobs) |
+| 3.5 | TDD Core Services (Phase 3.5) | ✅ Done (122 specs, 6 services, 5 jobs) |
 | 3.6 | Changelog API Endpoints (Phase 3.6) | ✅ Done (generate, approve, view — strict RED→GREEN TDD) |
 | 3.7 | Notifications + Batch Review API (Phase 3.7) | ✅ Done (list, detail, batch approve/reject — RED→GREEN TDD) |
 | 3.8 | Ticket CRUD API (Phase 3.8) | ✅ Done (create + update with audit events — RED→GREEN TDD) |
@@ -310,7 +317,11 @@
 | 5.2 | Lifecycle Hooks (Phase 7.5) | ✅ Done (wired ingestion→triage→sync→poll chain, 149 total specs) |
 | 5.4 | Webhook Security (Phase 8) | ✅ Done (HMAC verification on all 3 webhooks — RED→GREEN TDD, 162 total specs) |
 | 6 | Changelog + Notifications (Phases 6-7) | Services built via TDD (Phase 3.5), approve endpoint done |
-| 7 | API + Frontend (Phases 8-9) | ✅ Done (Phase 8 complete — all 13 API endpoints) |
+| 7 | API + Frontend (Phases 8-9) | ✅ Done (13 API endpoints + full dashboard with 6 pages) |
+| 7.1 | Frontend — Ticket Detail + AI Review | ✅ Done (timeline, data comparison, changelog review, status actions) |
+| 7.2 | Frontend — Batch Review + Notifications | ✅ Done (batch approve/reject, notification history, filters) |
+| 7.3 | Frontend — Metrics Dashboard | ✅ Done (recharts, period filter, clickable charts, type inference) |
+| 7.4 | Observability (Phase 11 partial) | ✅ Done (structured logging, dead letter queue, force-fail, 259 specs) |
 | 8 | Diagrams + Edge Cases (Phases 10-11) | Not started |
 | 9 | Final Document (Phase 12) | In progress |
 
@@ -320,11 +331,20 @@
 
 In addition to the design document, a fully working prototype exists demonstrating:
 
-- **3 webhook endpoints** receiving realistic simulated payloads
+- **3 webhook endpoints** with HMAC signature verification receiving realistic simulated payloads
 - **3 normalizers** converting platform-specific formats to canonical Tickets
 - **Idempotent ingestion** — duplicate webhooks are safely ignored
 - **Cross-channel reporter resolution** — same person recognized across platforms
+- **AI triage pipeline** — OpenAI gpt-4o-mini for type/priority/summary with PII scrubbing
+- **Ticket type inference** — OpenAI in production, regex fallback with Spanish keyword support
+- **Notion two-way sync** — push on triage + poll every 2 min with rate limit handling
+- **WhatsApp 24h window** — session/template message logic
+- **Changelog generation & review** — AI draft → human approve/reject → notification dispatch
+- **Batch review** — mass-resolution spam prevention (>5 tickets → pending batch review)
 - **Simulator** — Sidekiq jobs generating realistic Spanish-language payloads every 10-30s
-- **Live dashboard** — Next.js frontend with auto-refresh, filters, stats, priority colors
+- **Full dashboard** — 6 pages: ticket list, ticket detail, AI review, batch reviews, notifications, metrics
+- **Metrics dashboard** — recharts with clickable charts, period filtering, top reporters
+- **Observability** — StructuredLogger (JSON), JobLogging concern, ForceFailStore (Redis), dead letter queue + API + frontend
+- **259 backend specs + 45 frontend tests** — all passing
 
 See `PROTOTYPE.md` for full details.

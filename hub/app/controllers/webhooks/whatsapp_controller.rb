@@ -11,7 +11,7 @@ module Webhooks
 
       render json: { status: "ok", ticket_id: ticket.id }, status: :ok
     rescue StandardError => e
-      Rails.logger.error("WhatsApp webhook error: #{e.message}")
+      StructuredLogger.instance.error("Webhook ingestion failed", service: "webhook", channel: "whatsapp", error: e.message, error_class: e.class.name)
       render json: { error: e.message }, status: :unprocessable_entity
     end
 

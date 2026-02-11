@@ -7,6 +7,8 @@ module Ingestion
     }.freeze
 
     def self.ingest(platform:, payload:)
+      log = StructuredLogger.instance.with_context(service: "ingestion", channel: platform)
+
       normalizer_class = NORMALIZERS[platform]
       raise ArgumentError, "Unknown platform: #{platform}" unless normalizer_class
 
@@ -14,11 +16,15 @@ module Ingestion
       external_id = extract_external_id(platform, payload)
       if external_id.present?
         existing = TicketSource.find_by(platform: platform, external_id: external_id)
-        return existing.ticket if existing
+        if existing
+          log.info("Duplicate skipped", external_id: external_id, ticket_id: existing.ticket_id)
+          return existing.ticket
+        end
       end
 
       normalizer = normalizer_class.new(payload)
       ticket = normalizer.normalize
+      log.info("Ticket ingested", ticket_id: ticket.id, external_id: external_id, ticket_type: ticket.ticket_type, priority: ticket.priority)
       # AI triage is user-initiated only (avoids burning OpenAI quota from simulator)
       ticket
     end
