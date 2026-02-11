@@ -16,7 +16,12 @@ module Api
       render json: { error: e.message }, status: :unprocessable_entity
     rescue ChangelogGeneratorService::AiApiError => e
       Rails.logger.error("Changelog AI error: #{e.message}")
-      render json: { error: "AI service temporarily unavailable. Please try again in a few seconds." }, status: :service_unavailable
+      message = if e.message.include?("rate_limit") || e.message.include?("429") || e.message.include?("cooldown")
+                  "OpenAI rate limit reached. Please wait a minute and try again."
+                else
+                  "AI service temporarily unavailable. Please try again in a few seconds."
+                end
+      render json: { error: message }, status: :service_unavailable
     end
 
     def approve

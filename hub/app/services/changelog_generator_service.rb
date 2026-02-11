@@ -19,6 +19,8 @@ class ChangelogGeneratorService
     existing = @ticket.changelog_entries.drafts.first
     return existing if existing
 
+    raise AiApiError, "OpenAI rate limit cooldown active — try again later" if rate_limited?
+
     response = request_openai
     content = response.dig("choices", 0, "message", "content")
     usage = response["usage"]
@@ -67,10 +69,13 @@ class ChangelogGeneratorService
 
     response = http.request(request)
 
-    if response.code == "429" && retries > 0
+    if response.code == "429"
       wait = response["Retry-After"]&.to_i || 20
-      sleep(wait)
-      return request_openai(retries: retries - 1)
+      set_rate_limit_cooldown!(wait)
+      if retries > 0
+        sleep(wait)
+        return request_openai(retries: retries - 1)
+      end
     end
 
     raise AiApiError, "OpenAI returned #{response.code}: #{response.body}" unless response.code == "200"
@@ -83,6 +88,10 @@ class ChangelogGeneratorService
   end
 
   def user_prompt
+    PiiScrubberService.scrub(ticket_text)[:scrubbed]
+  end
+
+  def ticket_text
     parts = []
     parts << "Ticket title: #{@ticket.title}"
     parts << "Description: #{@ticket.description}" if @ticket.description.present?
@@ -90,5 +99,13 @@ class ChangelogGeneratorService
     parts << "Type: #{@ticket.ticket_type}"
     parts << "Reporter: #{@ticket.reporter&.name}" if @ticket.reporter
     parts.join("\n")
+  end
+
+  def rate_limited?
+    Rails.cache.exist?("openai:rate_limited")
+  end
+
+  def set_rate_limit_cooldown!(seconds)
+    Rails.cache.write("openai:rate_limited", true, expires_in: [seconds, 60].max.seconds)
   end
 end
