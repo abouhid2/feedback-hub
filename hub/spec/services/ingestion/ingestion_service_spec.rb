@@ -4,11 +4,12 @@ RSpec.describe Ingestion::IngestionService, type: :service do
   let(:slack_payload) do
     {
       trigger_id: "T-#{SecureRandom.hex(4)}",
+      user_name: "Ana García",
+      user_id: "U12345",
+      text: "El botón de login no funciona en móvil",
       payload: {
         issue_id: "SLACK-#{SecureRandom.hex(4)}",
-        reporter_name: "Ana García",
-        reporter_email: "ana@example.com",
-        description: "El botón de login no funciona en móvil",
+        incident: "El botón de login no funciona en móvil",
         priority: "alta"
       }
     }

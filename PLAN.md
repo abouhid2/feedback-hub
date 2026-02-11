@@ -306,6 +306,8 @@
 | 3.9 | Metrics API (Phase 3.9) | ✅ Done (summary endpoint — RED→GREEN TDD, 116 total specs) |
 | 4 | AI Enrichment (Phase 4) | ✅ Done (AiTriageService + PiiScrubber + AiTriageJob — RED→GREEN TDD, 129 total specs) |
 | 5 | Notion Sync (Phase 5) | ✅ Done (rate limit handling + poll scheduler — RED→GREEN TDD, 137 total specs) |
+| 5.1 | WhatsApp 24h Window (Phase 7) | ✅ Done (WhatsappDeliveryService + session/template logic, 144 total specs) |
+| 5.2 | Lifecycle Hooks (Phase 7.5) | ✅ Done (wired ingestion→triage→sync→poll chain, 149 total specs) |
 | 6 | Changelog + Notifications (Phases 6-7) | Services built via TDD (Phase 3.5), approve endpoint done |
 | 7 | API + Frontend (Phases 8-9) | ✅ Done (Phase 8 complete — all 13 API endpoints) |
 | 8 | Diagrams + Edge Cases (Phases 10-11) | Not started |

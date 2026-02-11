@@ -18,7 +18,9 @@ module Ingestion
       end
 
       normalizer = normalizer_class.new(payload)
-      normalizer.normalize
+      ticket = normalizer.normalize
+      AiTriageJob.perform_later(ticket.id)
+      ticket
     end
 
     def self.extract_external_id(platform, payload)
