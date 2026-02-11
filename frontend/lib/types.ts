@@ -15,6 +15,7 @@ export interface TicketSource {
   platform: string;
   external_id: string;
   external_url: string | null;
+  raw_payload: Record<string, unknown>;
 }
 
 export interface TicketEvent {

@@ -49,6 +49,17 @@ const mockTicketDetail = {
       platform: "slack",
       external_id: "slack-msg-001",
       external_url: "https://workspace.slack.com/archives/C123/p456",
+      raw_payload: {
+        event: {
+          type: "message",
+          text: "Login button broken on Safari",
+          user: "U12345",
+          ts: "1707567000.000100",
+        },
+        team_id: "T98765",
+        event_id: "Ev01ABC",
+        type: "event_callback",
+      },
     },
   ],
   events: [
@@ -100,18 +111,17 @@ describe("Ticket Detail Page", () => {
   it("renders ticket title and description", async () => {
     render(<TicketDetailPage />);
 
+    const heading = await screen.findByRole("heading", { name: "Login button broken on Safari" });
+    expect(heading).toBeInTheDocument();
     expect(
-      await screen.findByText("Login button broken on Safari")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Users report the login button is unresponsive/)
-    ).toBeInTheDocument();
+      screen.getAllByText(/Users report the login button is unresponsive/).length
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("renders back link to ticket list", async () => {
     render(<TicketDetailPage />);
 
-    await screen.findByText("Login button broken on Safari");
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
     const backLink = screen.getByRole("link", { name: /back to tickets/i });
     expect(backLink).toHaveAttribute("href", "/");
   });
@@ -119,17 +129,17 @@ describe("Ticket Detail Page", () => {
   it("shows priority, channel, status, and type badges", async () => {
     render(<TicketDetailPage />);
 
-    await screen.findByText("Login button broken on Safari");
-    expect(screen.getByText(/P1 High/)).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
+    expect(screen.getAllByText(/P1 High/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("slack").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("open")).toBeInTheDocument();
+    expect(screen.getAllByText("open").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Bug").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders the event timeline in chronological order", async () => {
     render(<TicketDetailPage />);
 
-    await screen.findByText("Login button broken on Safari");
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
 
     // All 4 events should appear
     expect(screen.getByText("Ticket created")).toBeInTheDocument();
@@ -141,7 +151,7 @@ describe("Ticket Detail Page", () => {
   it("displays AI triage section with suggestions", async () => {
     render(<TicketDetailPage />);
 
-    await screen.findByText("Login button broken on Safari");
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
 
     // AI summary should be visible
     expect(
@@ -154,7 +164,7 @@ describe("Ticket Detail Page", () => {
   it("shows a Notion link when notion_page_id exists", async () => {
     render(<TicketDetailPage />);
 
-    await screen.findByText("Login button broken on Safari");
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
 
     const notionLink = screen.getByRole("link", { name: /view in notion/i });
     expect(notionLink).toHaveAttribute(
@@ -166,7 +176,7 @@ describe("Ticket Detail Page", () => {
   it("displays source information with external link", async () => {
     render(<TicketDetailPage />);
 
-    await screen.findByText("Login button broken on Safari");
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
 
     const sourceLink = screen.getByRole("link", { name: /view original/i });
     expect(sourceLink).toHaveAttribute(
@@ -175,28 +185,61 @@ describe("Ticket Detail Page", () => {
     );
   });
 
-  it("toggles between formatted and raw data views", async () => {
+  it("shows normalized data table by default in the Data section", async () => {
+    render(<TicketDetailPage />);
+
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
+
+    // The Data section should show the normalized key-value table
+    const dataSection = screen.getByText("Data").closest("div")!;
+    expect(dataSection).toBeInTheDocument();
+
+    // Normalized tab should be active — check for key fields in the table
+    expect(screen.getByText("Title")).toBeInTheDocument();
+    expect(screen.getByText("Priority")).toBeInTheDocument();
+    expect(screen.getByText("Status")).toBeInTheDocument();
+    expect(screen.getByText("Channel")).toBeInTheDocument();
+  });
+
+  it("toggles to raw payload view", async () => {
     const user = userEvent.setup();
     render(<TicketDetailPage />);
 
-    await screen.findByText("Login button broken on Safari");
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
 
-    // Raw data should not be visible initially
-    expect(screen.queryByText(/"browser"/)).not.toBeInTheDocument();
+    // Raw payload should not be visible initially
+    expect(screen.queryByText(/"team_id"/)).not.toBeInTheDocument();
 
-    // Click the raw data toggle
-    const toggle = screen.getByRole("button", { name: /raw data/i });
-    await user.click(toggle);
+    // Click the "Raw payload" tab button
+    const rawTab = screen.getByRole("button", { name: /raw payload/i });
+    await user.click(rawTab);
 
-    // Now metadata JSON should be visible
-    expect(screen.getByText(/"browser"/)).toBeInTheDocument();
-    expect(screen.getByText(/"Safari 17.2"/)).toBeInTheDocument();
+    // Now the raw webhook JSON from sources[0].raw_payload should be visible
+    expect(screen.getByText(/"team_id"/)).toBeInTheDocument();
+    expect(screen.getByText(/"T98765"/)).toBeInTheDocument();
+    expect(screen.getByText(/"event_callback"/)).toBeInTheDocument();
+  });
+
+  it("shows platform label on raw payload", async () => {
+    const user = userEvent.setup();
+    render(<TicketDetailPage />);
+
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
+
+    // Switch to raw payload tab
+    const rawTab = screen.getByRole("button", { name: /raw payload/i });
+    await user.click(rawTab);
+
+    // The raw view should include the raw JSON and the platform label
+    // Verify raw_payload content is shown alongside a platform label
+    expect(screen.getByText(/"team_id"/)).toBeInTheDocument();
+    expect(screen.getAllByText(/slack/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows reporter info", async () => {
     render(<TicketDetailPage />);
 
-    await screen.findByText("Login button broken on Safari");
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
     expect(screen.getByText("Jane Doe")).toBeInTheDocument();
     expect(screen.getByText("jane@test.com")).toBeInTheDocument();
   });

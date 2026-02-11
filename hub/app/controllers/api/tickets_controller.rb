@@ -88,7 +88,8 @@ module Api
         enrichment_status: ticket.enrichment_status,
         notion_page_id: ticket.notion_page_id,
         sources: ticket.ticket_sources.map { |s|
-          { platform: s.platform, external_id: s.external_id, external_url: s.external_url }
+          { platform: s.platform, external_id: s.external_id,
+            external_url: s.external_url, raw_payload: s.raw_payload }
         },
         events: ticket.ticket_events.order(created_at: :desc).map { |e|
           { event_type: e.event_type, actor_type: e.actor_type, data: e.data, created_at: e.created_at }
