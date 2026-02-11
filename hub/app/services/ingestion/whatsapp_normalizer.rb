@@ -17,6 +17,9 @@ module Ingestion
         display_name: contact.dig(:profile, :name)
       )
 
+      identity = ReporterIdentity.find_by(platform: "whatsapp", platform_user_id: wa_id)
+      identity&.update!(last_message_at: Time.current)
+
       body = message.dig(:text, :body) || ""
 
       ticket = create_ticket(

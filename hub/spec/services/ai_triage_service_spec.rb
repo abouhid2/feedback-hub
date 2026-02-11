@@ -80,5 +80,23 @@ RSpec.describe AiTriageService, type: :service do
       expect(result).to eq(:already_enriched)
       expect(WebMock).not_to have_requested(:post, "https://api.openai.com/v1/chat/completions")
     end
+
+    it "enqueues NotionSyncJob after successful triage" do
+      described_class.call(ticket)
+      expect(NotionSyncJob).to have_been_enqueued.with(ticket.id)
+    end
+
+    it "does not enqueue NotionSyncJob on failure" do
+      stub_request(:post, "https://api.openai.com/v1/chat/completions")
+        .to_return(status: 500, body: '{"error":"fail"}')
+
+      begin
+        described_class.call(ticket)
+      rescue AiTriageService::AiApiError
+        # expected
+      end
+
+      expect(NotionSyncJob).not_to have_been_enqueued
+    end
   end
 end

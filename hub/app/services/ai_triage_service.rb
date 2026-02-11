@@ -36,6 +36,8 @@ class AiTriageService
       }
     )
 
+    NotionSyncJob.perform_later(@ticket.id)
+
     @ticket
   rescue AiApiError => e
     @ticket.update!(enrichment_status: "failed")
