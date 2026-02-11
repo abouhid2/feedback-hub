@@ -37,6 +37,31 @@ export interface ChangelogEntry {
   updated_at: string;
 }
 
+export interface BatchNotification {
+  id: string;
+  ticket_id: string;
+  changelog_entry_id: string;
+  channel: string;
+  recipient: string;
+  status: string;
+  content: string;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  ticket_id: string;
+  changelog_entry_id: string | null;
+  channel: string;
+  recipient: string;
+  status: string;
+  content: string;
+  retry_count: number;
+  last_error: string | null;
+  delivered_at: string | null;
+  created_at: string;
+}
+
 export interface TicketDetail extends Ticket {
   description: string | null;
   metadata: Record<string, unknown> | null;

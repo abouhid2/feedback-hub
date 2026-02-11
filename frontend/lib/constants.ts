@@ -86,6 +86,20 @@ export const CHANGELOG_STATUS_LABELS: Record<string, string> = {
   rejected: "Rejected",
 };
 
+export const NOTIFICATION_STATUS_COLORS: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-800",
+  sent: "bg-green-100 text-green-800",
+  failed: "bg-red-100 text-red-800",
+  pending_batch_review: "bg-orange-100 text-orange-800",
+};
+
+export const NOTIFICATION_STATUS_LABELS: Record<string, string> = {
+  pending: "Pending",
+  sent: "Sent",
+  failed: "Failed",
+  pending_batch_review: "Batch Hold",
+};
+
 export function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const seconds = Math.floor(diff / 1000);

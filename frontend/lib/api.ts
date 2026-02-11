@@ -1,4 +1,4 @@
-import { Ticket, TicketDetail, ChangelogEntry } from "./types";
+import { Ticket, TicketDetail, ChangelogEntry, BatchNotification, Notification } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
@@ -169,4 +169,37 @@ export function simulateTicket(channel: "slack" | "intercom" | "whatsapp"): Prom
 
 export function simulateStatus(ticketId: string, status: string): Promise<TicketDetail> {
   return mutate<TicketDetail>(`/api/tickets/${ticketId}/simulate_status`, "POST", { status });
+}
+
+// Batch Reviews
+export function fetchPendingBatchReviews(): Promise<BatchNotification[]> {
+  return request<BatchNotification[]>("/api/batch_reviews/pending");
+}
+
+export function batchApproveAll(notificationIds: string[]): Promise<{ approved: number }> {
+  return mutate<{ approved: number }>("/api/batch_reviews/approve_all", "POST", { notification_ids: notificationIds });
+}
+
+export function batchApproveSelected(notificationIds: string[]): Promise<{ approved: number }> {
+  return mutate<{ approved: number }>("/api/batch_reviews/approve_selected", "POST", { notification_ids: notificationIds });
+}
+
+export function batchRejectAll(notificationIds: string[]): Promise<{ rejected: number }> {
+  return mutate<{ rejected: number }>("/api/batch_reviews/reject_all", "POST", { notification_ids: notificationIds });
+}
+
+export function createManualChangelog(ticketId: string, content: string): Promise<ChangelogEntry> {
+  return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/manual_changelog`, "POST", { content });
+}
+
+export function simulateBatchReview(count?: number): Promise<{ simulated: number; notification_ids: string[] }> {
+  return mutate<{ simulated: number; notification_ids: string[] }>("/api/batch_reviews/simulate", "POST", count ? { count } : {});
+}
+
+// Notifications
+export function fetchNotifications(filters?: { status?: string; channel?: string }): Promise<Notification[]> {
+  const params: Record<string, string> = {};
+  if (filters?.status && filters.status !== "all") params.status = filters.status;
+  if (filters?.channel && filters.channel !== "all") params.channel = filters.channel;
+  return request<Notification[]>("/api/notifications", Object.keys(params).length > 0 ? params : undefined);
 }
