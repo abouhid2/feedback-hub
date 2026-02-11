@@ -77,4 +77,45 @@ RSpec.describe "Api::Tickets::Changelogs", type: :request do
       expect(response).to have_http_status(:unprocessable_entity)
     end
   end
+
+  describe "PATCH /api/tickets/:ticket_id/reject_changelog" do
+    let!(:entry) { create(:changelog_entry, ticket: ticket, status: "draft") }
+
+    it "rejects a draft entry and returns it" do
+      patch "/api/tickets/#{ticket.id}/reject_changelog", params: { rejected_by: "admin@mainder.com", reason: "Needs more detail" }
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["status"]).to eq("rejected")
+    end
+
+    it "returns unprocessable entity when entry is not a draft" do
+      entry.update!(status: "approved", approved_by: "someone", approved_at: Time.current)
+
+      patch "/api/tickets/#{ticket.id}/reject_changelog", params: { rejected_by: "admin@mainder.com", reason: "Bad" }
+
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+  end
+
+  describe "PATCH /api/tickets/:ticket_id/update_changelog_draft" do
+    let!(:entry) { create(:changelog_entry, ticket: ticket, status: "draft", content: "Old content") }
+
+    it "updates the draft content and returns it" do
+      patch "/api/tickets/#{ticket.id}/update_changelog_draft", params: { content: "Updated changelog content" }
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["content"]).to eq("Updated changelog content")
+      expect(body["status"]).to eq("draft")
+    end
+
+    it "returns unprocessable entity when entry is not a draft" do
+      entry.update!(status: "approved", approved_by: "someone", approved_at: Time.current)
+
+      patch "/api/tickets/#{ticket.id}/update_changelog_draft", params: { content: "New content" }
+
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+  end
 end

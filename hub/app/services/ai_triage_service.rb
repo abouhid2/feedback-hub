@@ -15,6 +15,7 @@ class AiTriageService
   def call
     return :already_enriched if @ticket.enrichment_status == "completed"
     return :no_api_key unless api_key_configured?
+    raise AiApiError, "OpenAI rate limit cooldown active — try again later" if rate_limited?
 
     response = request_openai
     parsed = parse_response(response)
@@ -52,7 +53,7 @@ class AiTriageService
     key.present? && key != "test-key"
   end
 
-  def request_openai
+  def request_openai(retries: 2)
     uri = URI(OPENAI_URL)
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = true
@@ -71,6 +72,16 @@ class AiTriageService
     }.to_json
 
     response = http.request(request)
+
+    if response.code == "429"
+      wait = response["Retry-After"]&.to_i || 20
+      set_rate_limit_cooldown!(wait)
+      if retries > 0
+        sleep(wait)
+        return request_openai(retries: retries - 1)
+      end
+    end
+
     raise AiApiError, "OpenAI returned #{response.code}: #{response.body}" unless response.code == "200"
 
     JSON.parse(response.body)
@@ -97,5 +108,13 @@ class AiTriageService
     parts << "Channel: #{@ticket.original_channel}"
     parts << "Type: #{@ticket.ticket_type}"
     parts.join("\n")
+  end
+
+  def rate_limited?
+    Rails.cache.exist?("openai:rate_limited")
+  end
+
+  def set_rate_limit_cooldown!(seconds)
+    Rails.cache.write("openai:rate_limited", true, expires_in: [seconds, 60].max.seconds)
   end
 end

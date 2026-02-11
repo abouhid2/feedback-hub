@@ -12,8 +12,8 @@ export default function TicketTimeline({ events }: TicketTimelineProps) {
   );
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <h2 className="text-sm font-semibold text-gray-500 uppercase mb-4">
+    <div className="card">
+      <h2 className="section-title mb-4">
         Timeline
       </h2>
       <div className="space-y-4">
@@ -43,7 +43,7 @@ function TimelineEvent({
     <div className="flex gap-3">
       <div className="flex flex-col items-center">
         <span className="text-lg">{icon}</span>
-        {!isLast && <div className="w-px flex-1 bg-gray-200 mt-1" />}
+        {!isLast && <div className="w-px flex-1 bg-brand/15 mt-1" />}
       </div>
       <div className="pb-4">
         <p className="text-sm font-medium text-gray-900">{label}</p>
@@ -72,7 +72,7 @@ function EventData({
   }
 
   return (
-    <pre className="text-xs text-gray-500 mt-1 bg-gray-50 rounded px-2 py-1">
+    <pre className="code-inline text-gray-500 mt-1">
       {JSON.stringify(data, null, 2)}
     </pre>
   );

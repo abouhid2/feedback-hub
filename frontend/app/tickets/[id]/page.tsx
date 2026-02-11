@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { TicketDetail } from "../../../lib/types";
 import { fetchTicket } from "../../../lib/api";
 import TicketBadges from "../../../components/ticket-detail/TicketBadges";
 import AITriageCard from "../../../components/ticket-detail/AITriageCard";
+import ChangelogReview from "../../../components/ticket-detail/ChangelogReview";
 import TicketTimeline from "../../../components/ticket-detail/TicketTimeline";
 import DataComparison from "../../../components/ticket-detail/DataComparison";
 import SourcesList from "../../../components/ticket-detail/SourcesList";
+import StatusActions from "../../../components/ticket-detail/StatusActions";
 
 export default function TicketDetailPage() {
   const params = useParams();
@@ -18,20 +20,21 @@ export default function TicketDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const data = await fetchTicket(id);
-        setTicket(data);
-        setError(null);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load ticket");
-      } finally {
-        setLoading(false);
-      }
+  const loadTicket = useCallback(async () => {
+    try {
+      const data = await fetchTicket(id);
+      setTicket(data);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load ticket");
+    } finally {
+      setLoading(false);
     }
-    load();
   }, [id]);
+
+  useEffect(() => {
+    loadTicket();
+  }, [loadTicket]);
 
   if (loading) {
     return (
@@ -46,7 +49,7 @@ export default function TicketDetailPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 text-lg mb-4">{error || "Ticket not found"}</p>
-          <Link href="/" className="text-blue-600 hover:underline">
+          <Link href="/" className="link-brand">
             Back to tickets
           </Link>
         </div>
@@ -60,16 +63,16 @@ export default function TicketDetailPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="header-sticky">
         <div className="max-w-5xl mx-auto px-4 py-4">
-          <Link href="/" className="text-sm text-blue-600 hover:underline">
+          <Link href="/" className="text-sm text-white/80 hover:text-white hover:underline">
             Back to tickets
           </Link>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Title + badges */}
+        {/* Title + badges + status actions */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-3">
             {ticket.title}
@@ -80,12 +83,19 @@ export default function TicketDetailPage() {
             status={ticket.status}
             ticketType={ticket.ticket_type}
           />
+          <div className="mt-3">
+            <StatusActions
+              ticketId={ticket.id}
+              currentStatus={ticket.status}
+              onStatusChange={loadTicket}
+            />
+          </div>
         </div>
 
         {/* Description */}
         {ticket.description && (
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">
+          <div className="card">
+            <h2 className="section-title mb-2">
               Description
             </h2>
             <p className="text-gray-800 whitespace-pre-wrap">
@@ -96,8 +106,8 @@ export default function TicketDetailPage() {
 
         {/* Reporter + Sources */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">
+          <div className="card">
+            <h2 className="section-title mb-2">
               Reporter
             </h2>
             {ticket.reporter ? (
@@ -117,12 +127,12 @@ export default function TicketDetailPage() {
 
         {/* Notion link */}
         {notionUrl && (
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="card">
             <a
               href={notionUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:underline font-medium"
+              className="link-brand font-medium"
             >
               View in Notion
             </a>
@@ -135,6 +145,8 @@ export default function TicketDetailPage() {
           aiSuggestedPriority={ticket.ai_suggested_priority}
           enrichmentStatus={ticket.enrichment_status}
         />
+
+        <ChangelogReview ticketId={ticket.id} ticketStatus={ticket.status} />
 
         <TicketTimeline events={ticket.events} />
 

@@ -2,7 +2,7 @@ export const PRIORITY_COLORS: Record<number, string> = {
   0: "bg-red-600 text-white",
   1: "bg-orange-500 text-white",
   2: "bg-yellow-500 text-black",
-  3: "bg-blue-500 text-white",
+  3: "bg-brand text-white",
   4: "bg-gray-400 text-white",
   5: "bg-gray-300 text-gray-600",
 };
@@ -37,7 +37,7 @@ export const TYPE_LABELS: Record<string, string> = {
 
 export const STATUS_COLORS: Record<string, string> = {
   open: "bg-emerald-100 text-emerald-800",
-  in_progress: "bg-blue-100 text-blue-800",
+  in_progress: "bg-brand-light text-brand",
   resolved: "bg-gray-100 text-gray-600",
   closed: "bg-gray-200 text-gray-500",
 };
@@ -72,6 +72,18 @@ export const EVENT_ICONS: Record<string, string> = {
   notification_failed: "\u{1F6A8}",
   synced_to_notion: "\u{1F4D4}",
   ai_triaged: "\u{1F916}",
+};
+
+export const CHANGELOG_STATUS_COLORS: Record<string, string> = {
+  draft: "bg-amber-100 text-amber-800 border-amber-300",
+  approved: "bg-green-100 text-green-800 border-green-300",
+  rejected: "bg-gray-100 text-gray-500 border-gray-300",
+};
+
+export const CHANGELOG_STATUS_LABELS: Record<string, string> = {
+  draft: "Draft \u2014 Pending Review",
+  approved: "Approved",
+  rejected: "Rejected",
 };
 
 export function timeAgo(dateStr: string): string {

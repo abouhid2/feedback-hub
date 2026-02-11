@@ -6,8 +6,8 @@ interface SourcesListProps {
 
 export default function SourcesList({ sources }: SourcesListProps) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <h2 className="text-sm font-semibold text-gray-500 uppercase mb-2">
+    <div className="card">
+      <h2 className="section-title mb-2">
         Sources
       </h2>
       {sources.length > 0 ? (
@@ -22,7 +22,7 @@ export default function SourcesList({ sources }: SourcesListProps) {
                   href={source.external_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
+                  className="link-brand"
                 >
                   View original
                 </a>

@@ -80,6 +80,6 @@ class NotionPollService
       data: { old_status: old_status, new_status: new_status, notion_page_id: notion_page_id }
     )
 
-    ChangelogGeneratorJob.perform_later(ticket.id) if new_status == "resolved"
+    # Changelog generation is user-initiated only (via "Generate Changelog" button)
   end
 end

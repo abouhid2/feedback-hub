@@ -1,14 +1,27 @@
 module Api
   class TicketsController < ApplicationController
     def index
-      tickets = Ticket.includes(:reporter, :ticket_sources)
+      page = (params[:page] || 1).to_i
+      per_page = (params[:per_page] || 20).to_i.clamp(1, 100)
+
+      base = Ticket.includes(:reporter, :ticket_sources)
         .by_status(params[:status])
         .by_channel(params[:channel])
         .by_priority(params[:priority])
         .recent
-        .limit(params[:limit] || 50)
 
-      render json: tickets.map { |t| serialize_ticket(t) }
+      total = base.count
+      tickets = base.offset((page - 1) * per_page).limit(per_page)
+
+      render json: {
+        tickets: tickets.map { |t| serialize_ticket(t) },
+        pagination: {
+          page: page,
+          per_page: per_page,
+          total: total,
+          total_pages: (total.to_f / per_page).ceil
+        }
+      }
     end
 
     def show
@@ -53,6 +66,31 @@ module Api
       else
         render json: { errors: ticket.errors.full_messages }, status: :unprocessable_entity
       end
+    rescue ActiveRecord::RecordNotFound
+      render json: { error: "Ticket not found" }, status: :not_found
+    end
+
+    def simulate_status
+      ticket = Ticket.find(params[:id])
+      new_status = params[:status]
+
+      unless %w[open in_progress resolved closed].include?(new_status)
+        return render json: { error: "Invalid status" }, status: :unprocessable_entity
+      end
+
+      old_status = ticket.status
+      return render json: serialize_ticket_detail(ticket) if old_status == new_status
+
+      ticket.update!(status: new_status)
+
+      ticket.ticket_events.create!(
+        event_type: "status_changed",
+        actor_type: "notion_sync",
+        actor_id: "notion_poll",
+        data: { old_status: old_status, new_status: new_status }
+      )
+
+      render json: serialize_ticket_detail(ticket.reload)
     rescue ActiveRecord::RecordNotFound
       render json: { error: "Ticket not found" }, status: :not_found
     end

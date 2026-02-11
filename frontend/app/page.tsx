@@ -1,30 +1,44 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import { Ticket } from "../lib/types";
-import { fetchTickets as apiFetchTickets } from "../lib/api";
-import {
-  PRIORITY_COLORS,
-  PRIORITY_LABELS,
-  CHANNEL_ICONS,
-  CHANNEL_COLORS,
-  TYPE_LABELS,
-  STATUS_COLORS,
-  timeAgo,
-} from "../lib/constants";
+import { fetchTickets as apiFetchTickets, fetchMetrics } from "../lib/api";
+import StatsCards from "../components/dashboard/StatsCards";
+import SimulateButtons from "../components/dashboard/SimulateButtons";
+import TicketFilters from "../components/dashboard/TicketFilters";
+import TicketTable from "../components/dashboard/TicketTable";
+
+interface Filters {
+  channel: string;
+  status: string;
+  priority: string;
+}
 
 export default function Dashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [filter, setFilter] = useState<string>("all");
+  const [filters, setFilters] = useState<Filters>({ channel: "all", status: "all", priority: "all" });
+  const [stats, setStats] = useState({ total: 0, slack: 0, intercom: 0, whatsapp: 0, critical: 0 });
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const fetchTickets = useCallback(async () => {
+  const refreshData = useCallback(async () => {
     try {
-      const data = await apiFetchTickets(filter);
-      setTickets(data);
+      const [ticketData, metricsData] = await Promise.all([
+        apiFetchTickets({ ...filters, page, per_page: 20 }),
+        fetchMetrics(),
+      ]);
+      setTickets(ticketData.tickets);
+      setTotalPages(ticketData.pagination.total_pages);
+      setStats({
+        total: metricsData.total,
+        slack: metricsData.by_channel.slack || 0,
+        intercom: metricsData.by_channel.intercom || 0,
+        whatsapp: metricsData.by_channel.whatsapp || 0,
+        critical: (metricsData.by_priority["0"] || 0) + (metricsData.by_priority["1"] || 0),
+      });
       setLastUpdated(new Date());
       setError(null);
     } catch (e) {
@@ -32,41 +46,42 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filters, page]);
 
   useEffect(() => {
-    fetchTickets();
-    const interval = setInterval(fetchTickets, 5000);
+    refreshData();
+    const interval = setInterval(refreshData, 5000);
     return () => clearInterval(interval);
-  }, [fetchTickets]);
+  }, [refreshData]);
 
-  const stats = {
-    total: tickets.length,
-    slack: tickets.filter((t) => t.original_channel === "slack").length,
-    intercom: tickets.filter((t) => t.original_channel === "intercom").length,
-    whatsapp: tickets.filter((t) => t.original_channel === "whatsapp").length,
-    critical: tickets.filter((t) => t.priority <= 1).length,
+  const handleFilterChange = (key: keyof Filters, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+  };
+
+  const handleSimulated = () => {
+    setPage(1);
+    refreshData();
   };
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="header-sticky">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-white">
               Mainder Feedback Hub
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-white/70">
               Multi-channel feedback ingestion &mdash; live prototype
             </p>
           </div>
-          <div className="text-right text-sm text-gray-400">
+          <div className="text-right text-sm text-white/70">
             {lastUpdated && (
               <span>Updated: {lastUpdated.toLocaleTimeString()}</span>
             )}
             <div className="flex items-center gap-1 mt-1">
-              <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
               <span>Auto-refreshing every 5s</span>
             </div>
           </div>
@@ -74,165 +89,41 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <StatCard label="Total Tickets" value={stats.total} color="text-gray-900" />
-          <StatCard label="Slack" value={stats.slack} color="text-purple-600" />
-          <StatCard label="Intercom" value={stats.intercom} color="text-blue-600" />
-          <StatCard label="WhatsApp" value={stats.whatsapp} color="text-green-600" />
-          <StatCard label="Critical (P0-P1)" value={stats.critical} color="text-red-600" />
-        </div>
+        <StatsCards stats={stats} />
+        <SimulateButtons onSimulated={handleSimulated} />
+        <TicketFilters filters={filters} onFilterChange={handleFilterChange} />
 
-        {/* Filters */}
-        <div className="flex gap-2 mb-4">
-          {["all", "slack", "intercom", "whatsapp"].map((ch) => (
-            <button
-              key={ch}
-              onClick={() => setFilter(ch)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                filter === ch
-                  ? "bg-gray-900 text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
-              }`}
-            >
-              {ch === "all" ? "All channels" : ch.charAt(0).toUpperCase() + ch.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        {/* Error state */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <div className="card-error mb-4">
             <p className="text-red-700 text-sm">
               Failed to connect to API: {error}. Make sure Rails is running on port 3000.
             </p>
           </div>
         )}
 
-        {/* Loading state */}
         {loading && tickets.length === 0 && (
           <div className="text-center py-20 text-gray-400">
             <p className="text-lg">Loading tickets...</p>
-            <p className="text-sm mt-2">
-              Waiting for simulator to generate data
-            </p>
+            <p className="text-sm mt-2">Waiting for simulator to generate data</p>
           </div>
         )}
 
-        {/* Empty state */}
         {!loading && tickets.length === 0 && !error && (
           <div className="text-center py-20 text-gray-400">
             <p className="text-lg">No tickets yet</p>
-            <p className="text-sm mt-2">
-              Start the simulator with Sidekiq to generate webhook payloads
-            </p>
+            <p className="text-sm mt-2">Start the simulator with Sidekiq to generate webhook payloads</p>
           </div>
         )}
 
-        {/* Ticket list */}
         {tickets.length > 0 && (
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                    Priority
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                    Channel
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                    Title
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                    Type
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                    Reporter
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                    Status
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                    Created
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {tickets.map((ticket) => (
-                  <tr
-                    key={ticket.id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
-                          PRIORITY_COLORS[ticket.priority] || "bg-gray-200"
-                        }`}
-                      >
-                        {PRIORITY_LABELS[ticket.priority] || `P${ticket.priority}`}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                          CHANNEL_COLORS[ticket.original_channel] || ""
-                        }`}
-                      >
-                        <span>{CHANNEL_ICONS[ticket.original_channel]}</span>
-                        {ticket.original_channel}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 max-w-md truncate">
-                      <Link
-                        href={`/tickets/${ticket.id}`}
-                        className="hover:text-blue-600 hover:underline"
-                      >
-                        {ticket.title}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {TYPE_LABELS[ticket.ticket_type] || ticket.ticket_type}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {ticket.reporter?.name || "\u2014"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                          STATUS_COLORS[ticket.status] || ""
-                        }`}
-                      >
-                        {ticket.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-400">
-                      {timeAgo(ticket.created_at)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TicketTable
+            tickets={tickets}
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         )}
       </main>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) {
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className={`text-2xl font-bold ${color}`}>{value}</p>
     </div>
   );
 }

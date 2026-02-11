@@ -94,20 +94,50 @@ const mockTicketDetail = {
   ],
 };
 
-beforeEach(() => {
-  global.fetch = jest.fn(() =>
-    Promise.resolve({
+const mockDraftChangelog = {
+  id: "changelog-1",
+  ticket_id: "abc-123",
+  content: "Fixed the login button regression on Safari 17.2",
+  status: "draft",
+  ai_model: "gpt-4o-mini",
+  approved_by: null,
+  approved_at: null,
+  created_at: "2026-02-11T10:00:00Z",
+  updated_at: "2026-02-11T10:00:00Z",
+};
+
+function setupFetchMock(changelogResponse?: { ok: boolean; body: unknown }) {
+  global.fetch = jest.fn((url: string) => {
+    if (url.includes("/changelog")) {
+      if (changelogResponse) {
+        return Promise.resolve({
+          ok: changelogResponse.ok,
+          json: () => Promise.resolve(changelogResponse.body),
+        });
+      }
+      // Default: 404 no changelog
+      return Promise.resolve({
+        ok: false,
+        json: () => Promise.resolve({ error: "No changelog entry found" }),
+      });
+    }
+    // Ticket detail
+    return Promise.resolve({
       ok: true,
       json: () => Promise.resolve(mockTicketDetail),
-    })
-  ) as jest.Mock;
-});
+    });
+  }) as jest.Mock;
+}
 
 afterEach(() => {
   jest.restoreAllMocks();
 });
 
 describe("Ticket Detail Page", () => {
+  beforeEach(() => {
+    setupFetchMock();
+  });
+
   it("renders ticket title and description", async () => {
     render(<TicketDetailPage />);
 
@@ -242,5 +272,94 @@ describe("Ticket Detail Page", () => {
     await screen.findByRole("heading", { name: "Login button broken on Safari" });
     expect(screen.getByText("Jane Doe")).toBeInTheDocument();
     expect(screen.getByText("jane@test.com")).toBeInTheDocument();
+  });
+});
+
+describe("Ticket Detail — Status Actions", () => {
+  beforeEach(() => {
+    setupFetchMock();
+  });
+
+  it("shows status transition buttons for open ticket", async () => {
+    render(<TicketDetailPage />);
+
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
+
+    expect(screen.getByRole("button", { name: "Start Progress" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Resolve" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+  });
+
+  it("shows correct transitions for resolved ticket", async () => {
+    const resolvedTicket = { ...mockTicketDetail, status: "resolved" };
+    global.fetch = jest.fn((url: string) => {
+      if (url.includes("/changelog")) {
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({ error: "No changelog entry found" }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(resolvedTicket),
+      });
+    }) as jest.Mock;
+
+    render(<TicketDetailPage />);
+
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
+
+    expect(screen.getByRole("button", { name: "Reopen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start Progress" })).not.toBeInTheDocument();
+  });
+});
+
+describe("Ticket Detail — Changelog Review", () => {
+  it("shows changelog review section with draft content", async () => {
+    setupFetchMock({ ok: true, body: mockDraftChangelog });
+    render(<TicketDetailPage />);
+
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
+
+    expect(
+      await screen.findByText("Fixed the login button regression on Safari 17.2")
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Pending Review/)).toBeInTheDocument();
+  });
+
+  it("shows approve and reject buttons for draft changelog", async () => {
+    setupFetchMock({ ok: true, body: mockDraftChangelog });
+    render(<TicketDetailPage />);
+
+    await screen.findByText("Fixed the login button regression on Safari 17.2");
+
+    expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+
+  it("shows generate button for resolved ticket without changelog", async () => {
+    const resolvedTicket = { ...mockTicketDetail, status: "resolved" };
+    global.fetch = jest.fn((url: string) => {
+      if (url.includes("/changelog")) {
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({ error: "No changelog entry found" }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(resolvedTicket),
+      });
+    }) as jest.Mock;
+
+    render(<TicketDetailPage />);
+
+    await screen.findByRole("heading", { name: "Login button broken on Safari" });
+
+    expect(
+      await screen.findByRole("button", { name: "Generate Changelog" })
+    ).toBeInTheDocument();
   });
 });

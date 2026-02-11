@@ -14,6 +14,14 @@ module Api
       render json: serialize_entry(entry), status: :created
     rescue ChangelogGeneratorService::InvalidTicketStatus => e
       render json: { error: e.message }, status: :unprocessable_entity
+    rescue ChangelogGeneratorService::AiApiError => e
+      Rails.logger.error("Changelog AI error: #{e.message}")
+      message = if e.message.include?("rate_limit") || e.message.include?("429") || e.message.include?("cooldown")
+                  "OpenAI rate limit reached. Please wait a minute and try again."
+                else
+                  "AI service temporarily unavailable. Please try again in a few seconds."
+                end
+      render json: { error: message }, status: :service_unavailable
     end
 
     def approve
@@ -21,6 +29,26 @@ module Api
       return render json: { error: "No changelog entry found" }, status: :not_found unless entry
 
       result = ChangelogReviewService.approve(entry, approved_by: params[:approved_by])
+      render json: serialize_entry(result)
+    rescue ChangelogReviewService::InvalidTransition => e
+      render json: { error: e.message }, status: :unprocessable_entity
+    end
+
+    def reject
+      entry = @ticket.changelog_entries.order(created_at: :desc).first
+      return render json: { error: "No changelog entry found" }, status: :not_found unless entry
+
+      result = ChangelogReviewService.reject(entry, rejected_by: params[:rejected_by], reason: params[:reason])
+      render json: serialize_entry(result)
+    rescue ChangelogReviewService::InvalidTransition => e
+      render json: { error: e.message }, status: :unprocessable_entity
+    end
+
+    def update_draft
+      entry = @ticket.changelog_entries.order(created_at: :desc).first
+      return render json: { error: "No changelog entry found" }, status: :not_found unless entry
+
+      result = ChangelogReviewService.update_draft(entry, new_content: params[:content])
       render json: serialize_entry(result)
     rescue ChangelogReviewService::InvalidTransition => e
       render json: { error: e.message }, status: :unprocessable_entity
