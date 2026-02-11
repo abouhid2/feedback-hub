@@ -359,7 +359,7 @@ describe("Ticket Detail — Changelog Review", () => {
     await screen.findByRole("heading", { name: "Login button broken on Safari" });
 
     expect(
-      await screen.findByRole("button", { name: "Generate Changelog" })
+      await screen.findByRole("button", { name: "Generate with AI" })
     ).toBeInTheDocument();
   });
 });

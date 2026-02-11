@@ -12,6 +12,8 @@ class WhatsappDeliveryService
   end
 
   def deliver
+    return { method: :mock, status: :sent } unless ENV["WHATSAPP_API_TOKEN"].present?
+
     if within_session_window?
       send_session_message
     else

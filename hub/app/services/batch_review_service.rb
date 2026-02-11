@@ -13,7 +13,7 @@ class BatchReviewService
   def self.approve_all(notifications)
     notifications.each do |notification|
       notification.update!(status: "pending")
-      NotificationDispatchJob.perform_later(notification.changelog_entry_id)
+      NotificationDispatchService.retry_notification(notification)
     end
   end
 
@@ -21,7 +21,7 @@ class BatchReviewService
     notifications = Notification.where(id: notification_ids, status: "pending_batch_review")
     notifications.each do |notification|
       notification.update!(status: "pending")
-      NotificationDispatchJob.perform_later(notification.changelog_entry_id)
+      NotificationDispatchService.retry_notification(notification)
     end
   end
 

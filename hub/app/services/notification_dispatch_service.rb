@@ -10,6 +10,12 @@ class NotificationDispatchService
     "in_app" => nil
   }.freeze
 
+  PLATFORM_TOKEN_VARS = {
+    "slack" => "SLACK_BOT_TOKEN",
+    "intercom" => "INTERCOM_API_TOKEN",
+    "whatsapp" => "WHATSAPP_API_TOKEN"
+  }.freeze
+
   def self.call(entry)
     new(entry).call
   end
@@ -26,6 +32,17 @@ class NotificationDispatchService
   def call
     validate_approved!
     recipient = find_recipient!
+
+    if batch_scenario?
+      notification = @ticket.notifications.create!(
+        changelog_entry: @entry,
+        channel: @ticket.original_channel,
+        recipient: recipient,
+        status: "pending_batch_review",
+        content: @entry.content
+      )
+      return notification
+    end
 
     notification = @ticket.notifications.create!(
       changelog_entry: @entry,
@@ -45,6 +62,12 @@ class NotificationDispatchService
   end
 
   private
+
+  def batch_scenario?
+    recent = ChangelogEntry.where(status: "approved")
+      .where("approved_at >= ?", BatchReviewService::BATCH_WINDOW.ago)
+    BatchReviewService.should_batch?(recent)
+  end
 
   def validate_approved!
     raise NotApproved, "Changelog entry must be approved (current: #{@entry.status})" unless @entry.status == "approved"
@@ -117,12 +140,17 @@ class NotificationDispatchService
     endpoint = PLATFORM_ENDPOINTS[notification.channel]
     return mock_success_response unless endpoint
 
+    token_var = PLATFORM_TOKEN_VARS[notification.channel]
+    token = token_var && ENV[token_var].presence
+    return mock_success_response unless token
+
     uri = URI(endpoint)
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = true
 
     request = Net::HTTP::Post.new(uri)
     request["Content-Type"] = "application/json"
+    request["Authorization"] = "Bearer #{token}"
     request.body = platform_payload(notification).to_json
 
     http.request(request)

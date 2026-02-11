@@ -97,4 +97,34 @@
   .code-block {
     @apply bg-gray-50 rounded p-3 text-xs text-gray-700 overflow-x-auto;
   }
+
+  /* Sidebar */
+  .sidebar {
+    @apply fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-20 overflow-y-auto;
+  }
+  .sidebar-header {
+    @apply bg-brand px-4 py-4;
+  }
+
+  /* Navigation Links */
+  .nav-link {
+    @apply block px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors;
+  }
+  .nav-link-active {
+    @apply block px-3 py-2 rounded-lg text-sm font-medium text-brand bg-brand-light;
+  }
+
+  /* Simulate Buttons */
+  .simulate-btn-slack {
+    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:opacity-50 transition-colors;
+  }
+  .simulate-btn-intercom {
+    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50 transition-colors;
+  }
+  .simulate-btn-whatsapp {
+    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-50 transition-colors;
+  }
+  .simulate-btn-batch {
+    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50 transition-colors;
+  }
 }

@@ -8,6 +8,7 @@ import {
   approveChangelog,
   rejectChangelog,
   updateChangelogDraft,
+  createManualChangelog,
 } from "../../lib/api";
 import {
   CHANGELOG_STATUS_COLORS,
@@ -28,6 +29,8 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [manualContent, setManualContent] = useState("");
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
 
   const load = useCallback(async () => {
@@ -49,6 +52,22 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
       setToast({ message: "Changelog generated successfully", type: "success" });
     } catch (e) {
       setToast({ message: e instanceof Error ? e.message : "Failed to generate changelog", type: "error" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleManualCreate = async () => {
+    if (!manualContent.trim()) return;
+    setActionLoading(true);
+    try {
+      const entry = await createManualChangelog(ticketId, manualContent);
+      setChangelog(entry);
+      setShowManualForm(false);
+      setManualContent("");
+      setToast({ message: "Manual changelog draft created", type: "success" });
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Failed to create changelog", type: "error" });
     } finally {
       setActionLoading(false);
     }
@@ -126,7 +145,7 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
     return <>{toastEl}</>;
   }
 
-  // No changelog but ticket is resolved — show generate button
+  // No changelog but ticket is resolved — show generate / manual buttons
   if (!changelog) {
     return (
       <>
@@ -135,15 +154,50 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
             Changelog Review
           </h2>
           <p className="text-sm text-gray-600 mb-3">
-            This ticket is resolved. Generate an AI changelog entry for review.
+            This ticket is resolved. Generate an AI changelog entry or write one manually.
           </p>
-          <button
-            onClick={handleGenerate}
-            disabled={actionLoading}
-            className="btn-primary px-4 py-2"
-          >
-            {actionLoading ? "Generating..." : "Generate Changelog"}
-          </button>
+          {showManualForm ? (
+            <div className="space-y-3">
+              <textarea
+                value={manualContent}
+                onChange={(e) => setManualContent(e.target.value)}
+                rows={5}
+                placeholder="Write your changelog entry..."
+                className="input-field"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleManualCreate}
+                  disabled={actionLoading || !manualContent.trim()}
+                  className="btn-primary px-3 py-1.5 disabled:opacity-50"
+                >
+                  {actionLoading ? "Creating..." : "Create Draft"}
+                </button>
+                <button
+                  onClick={() => { setShowManualForm(false); setManualContent(""); }}
+                  className="btn-secondary px-3 py-1.5"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={handleGenerate}
+                disabled={actionLoading}
+                className="btn-primary px-4 py-2"
+              >
+                {actionLoading ? "Generating..." : "Generate with AI"}
+              </button>
+              <button
+                onClick={() => setShowManualForm(true)}
+                className="btn-secondary px-4 py-2"
+              >
+                Write Manually
+              </button>
+            </div>
+          )}
         </div>
         {toastEl}
       </>

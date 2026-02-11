@@ -12,6 +12,7 @@ Rails.application.routes.draw do
       member do
         get :changelog, to: "changelogs#show"
         post :generate_changelog, to: "changelogs#create"
+        post :manual_changelog, to: "changelogs#manual_create"
         patch :approve_changelog, to: "changelogs#approve"
         patch :reject_changelog, to: "changelogs#reject"
         patch :update_changelog_draft, to: "changelogs#update_draft"
@@ -26,6 +27,7 @@ Rails.application.routes.draw do
       post :approve_all
       post :approve_selected
       post :reject_all
+      post :simulate
     end
 
     resource :metrics, only: [] do

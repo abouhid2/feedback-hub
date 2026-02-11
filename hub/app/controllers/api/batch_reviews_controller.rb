@@ -22,6 +22,39 @@ module Api
       render json: { rejected: notifications.size }
     end
 
+    def simulate
+      count = (params[:count] || 6).to_i
+      tickets = Ticket.where(status: "resolved").limit(count)
+      tickets = Ticket.limit(count) if tickets.empty?
+
+      created_ids = []
+      tickets.each do |ticket|
+        entry = ticket.changelog_entries.find_by(status: "approved")
+        unless entry
+          entry = ticket.changelog_entries.create!(
+            content: "Auto-generated changelog for #{ticket.title}",
+            status: "approved",
+            ai_model: "simulated",
+            ai_prompt_tokens: 0,
+            ai_completion_tokens: 0,
+            approved_by: "simulator",
+            approved_at: Time.current
+          )
+        end
+
+        notification = ticket.notifications.create!(
+          changelog_entry: entry,
+          channel: ticket.original_channel,
+          recipient: "simulated_recipient",
+          status: "pending_batch_review",
+          content: entry.content
+        )
+        created_ids << notification.id
+      end
+
+      render json: { simulated: created_ids.size, notification_ids: created_ids }
+    end
+
     private
 
     def serialize(n)

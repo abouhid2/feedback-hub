@@ -7,6 +7,11 @@ RSpec.describe WhatsappDeliveryService, type: :service do
   let(:entry) { create(:changelog_entry, :approved, ticket: ticket) }
 
   before do
+    allow(ENV).to receive(:[]).and_call_original
+    allow(ENV).to receive(:[]).with("WHATSAPP_API_TOKEN").and_return("test-token")
+    allow(ENV).to receive(:fetch).and_call_original
+    allow(ENV).to receive(:fetch).with("WHATSAPP_API_TOKEN", anything).and_return("test-token")
+
     stub_request(:post, "https://graph.facebook.com/v17.0/messages")
       .to_return(status: 200, body: '{"messages":[{"id":"wamid.abc123"}]}', headers: { "Content-Type" => "application/json" })
   end

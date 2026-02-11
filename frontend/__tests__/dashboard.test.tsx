@@ -76,18 +76,6 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe("Dashboard — simulate buttons", () => {
-  it("renders simulate buttons for each channel", async () => {
-    render(<Dashboard />);
-
-    await screen.findByRole("link", { name: /Login button broken/i });
-
-    expect(screen.getByRole("button", { name: /Slack/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Intercom/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /WhatsApp/i })).toBeInTheDocument();
-  });
-});
-
 describe("Dashboard — ticket list", () => {
   it("renders ticket rows as clickable links to detail page", async () => {
     render(<Dashboard />);

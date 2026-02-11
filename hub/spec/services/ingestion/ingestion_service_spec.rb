@@ -16,18 +16,21 @@ RSpec.describe Ingestion::IngestionService, type: :service do
   end
 
   describe ".ingest" do
-    it "enqueues AiTriageJob after creating a ticket" do
+    it "creates a ticket from a valid payload" do
       ticket = described_class.ingest(platform: "slack", payload: slack_payload)
-
-      expect(AiTriageJob).to have_been_enqueued.with(ticket.id)
+      expect(ticket).to be_persisted
     end
 
-    it "does not enqueue AiTriageJob for duplicate payloads" do
-      described_class.ingest(platform: "slack", payload: slack_payload)
-
+    it "does not enqueue AiTriageJob (AI is user-initiated only)" do
       expect {
         described_class.ingest(platform: "slack", payload: slack_payload)
       }.not_to have_enqueued_job(AiTriageJob)
+    end
+
+    it "returns existing ticket for duplicate payloads" do
+      ticket1 = described_class.ingest(platform: "slack", payload: slack_payload)
+      ticket2 = described_class.ingest(platform: "slack", payload: slack_payload)
+      expect(ticket2.id).to eq(ticket1.id)
     end
   end
 end
