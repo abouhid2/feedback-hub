@@ -3,14 +3,17 @@ class ChangelogGeneratorService
   class AiApiError < StandardError; end
 
   OPENAI_URL = "https://api.openai.com/v1/chat/completions".freeze
-  MODEL = "gpt-4o-mini".freeze
+  DEFAULT_MODEL = "gpt-5.1".freeze
+  AVAILABLE_MODELS = %w[gpt-5.1 gpt-4.1 gpt-4o-mini o3-mini].freeze
 
-  def self.call(ticket, custom_prompt: nil, custom_system_prompt: nil, resolution_notes: nil, force: false)
-    new(ticket, custom_prompt: custom_prompt, custom_system_prompt: custom_system_prompt, resolution_notes: resolution_notes, force: force).call
+  def self.call(ticket, custom_prompt: nil, custom_system_prompt: nil, resolution_notes: nil, force: false, model: nil)
+    new(ticket, custom_prompt: custom_prompt, custom_system_prompt: custom_system_prompt, resolution_notes: resolution_notes, force: force, model: model).call
   end
 
-  def self.generate_for_group(group, custom_prompt: nil, custom_system_prompt: nil, resolution_notes: nil)
+  def self.generate_for_group(group, custom_prompt: nil, custom_system_prompt: nil, resolution_notes: nil, model: nil)
     raise AiApiError, "OpenAI rate limit cooldown active — try again later" if Rails.cache.exist?("openai:rate_limited")
+
+    selected_model = model.presence || DEFAULT_MODEL
 
     tickets = group.tickets.includes(:reporter)
     prompt_text = build_group_prompt(tickets)
@@ -28,7 +31,7 @@ class ChangelogGeneratorService
     request["Content-Type"] = "application/json"
     request["Authorization"] = "Bearer #{ENV.fetch('OPENAI_API_KEY', 'test-key')}"
     request.body = {
-      model: MODEL,
+      model: selected_model,
       messages: [
         { role: "system", content: system_message },
         { role: "user", content: user_message }
@@ -61,12 +64,13 @@ class ChangelogGeneratorService
     parts.join("\n")
   end
 
-  def initialize(ticket, custom_prompt: nil, custom_system_prompt: nil, resolution_notes: nil, force: false)
+  def initialize(ticket, custom_prompt: nil, custom_system_prompt: nil, resolution_notes: nil, force: false, model: nil)
     @ticket = ticket
     @custom_prompt = custom_prompt
     @custom_system_prompt = custom_system_prompt
     @resolution_notes = resolution_notes
     @force = force
+    @model = model.presence || DEFAULT_MODEL
   end
 
   def call
@@ -88,7 +92,7 @@ class ChangelogGeneratorService
     entry = @ticket.changelog_entries.create!(
       content: content,
       status: "draft",
-      ai_model: MODEL,
+      ai_model: @model,
       ai_prompt_tokens: usage["prompt_tokens"],
       ai_completion_tokens: usage["completion_tokens"]
     )
@@ -118,7 +122,7 @@ class ChangelogGeneratorService
     request["Content-Type"] = "application/json"
     request["Authorization"] = "Bearer #{ENV.fetch('OPENAI_API_KEY', 'test-key')}"
     request.body = {
-      model: MODEL,
+      model: @model,
       messages: [
         { role: "system", content: system_prompt },
         { role: "user", content: @custom_prompt || user_prompt }

@@ -21,12 +21,12 @@ class NotificationDispatchService
   end
 
   def self.retry_notification(notification)
-    new(notification.changelog_entry).retry_send(notification)
+    new(notification.changelog_entry, ticket: notification.ticket).retry_send(notification)
   end
 
-  def initialize(entry)
+  def initialize(entry, ticket: nil)
     @entry = entry
-    @ticket = entry.ticket
+    @ticket = ticket || entry&.ticket
   end
 
   def call
@@ -64,7 +64,7 @@ class NotificationDispatchService
   end
 
   def deliver(notification)
-    if notification.channel == "whatsapp"
+    if notification.channel == "whatsapp" && @entry && @identity
       deliver_via_whatsapp(notification)
     else
       deliver_generic(notification)

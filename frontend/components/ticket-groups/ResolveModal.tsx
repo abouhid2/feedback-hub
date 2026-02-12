@@ -21,7 +21,7 @@ export default function ResolveModal({ group, onConfirm, onClose }: ResolveModal
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
 
-  const handleGenerate = async (options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string }) => {
+  const handleGenerate = async (options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string; model?: string }) => {
     setGenerating(true);
     try {
       const result = await generateGroupContent(group.id, options);
@@ -57,7 +57,7 @@ export default function ResolveModal({ group, onConfirm, onClose }: ResolveModal
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-semibold text-gray-900 mb-1">Resolve Group</h2>
         <p className="text-sm text-text-secondary mb-4">
           Resolving &quot;{group.name}&quot; will resolve all {group.ticket_count} tickets and send one notification.
@@ -85,7 +85,7 @@ export default function ResolveModal({ group, onConfirm, onClose }: ResolveModal
                   <textarea
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
-                    rows={5}
+                    rows={10}
                     className="input-field"
                   />
                   <div className="flex gap-2">

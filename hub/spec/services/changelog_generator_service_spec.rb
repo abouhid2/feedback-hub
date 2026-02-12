@@ -45,7 +45,7 @@ RSpec.describe ChangelogGeneratorService, type: :service do
 
     it "records ai_model and token usage" do
       entry = described_class.call(ticket)
-      expect(entry.ai_model).to eq("gpt-4o-mini")
+      expect(entry.ai_model).to eq("gpt-5.1")
       expect(entry.ai_prompt_tokens).to eq(150)
       expect(entry.ai_completion_tokens).to eq(35)
     end

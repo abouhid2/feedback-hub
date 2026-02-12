@@ -68,7 +68,8 @@ module Api
         group,
         custom_prompt: params[:prompt],
         custom_system_prompt: params[:system_prompt],
-        resolution_notes: params[:resolution_notes]
+        resolution_notes: params[:resolution_notes],
+        model: params[:model]
       )
       render json: { content: content }
     rescue ActiveRecord::RecordNotFound

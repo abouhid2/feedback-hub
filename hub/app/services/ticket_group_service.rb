@@ -99,7 +99,7 @@ class TicketGroupService
       identity = primary.reporter&.reporter_identities&.find_by(platform: channel)
       recipient = identity&.platform_user_id || "unknown"
 
-      # Find the primary ticket's approved entry to use for dispatch
+      # Link to the primary ticket's approved entry if one exists
       primary_entry = primary.changelog_entries.find_by(status: "approved")
 
       notification = primary.notifications.create!(
@@ -110,7 +110,7 @@ class TicketGroupService
         content: notification_content
       )
 
-      if identity && primary_entry
+      if identity
         NotificationDispatchService.retry_notification(notification)
       end
     end

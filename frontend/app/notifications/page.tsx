@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Notification } from "../../lib/types";
 import { fetchNotifications } from "../../lib/api";
+import Link from "next/link";
 import {
   CHANNEL_COLORS,
   CHANNEL_ICONS,
@@ -103,6 +104,7 @@ export default function NotificationsPage() {
                   <th className="table-th">Content</th>
                   <th className="table-th">Delivered</th>
                   <th className="table-th">Created</th>
+                  <th className="table-th"></th>
                 </tr>
               </thead>
               <tbody>
@@ -130,6 +132,11 @@ export default function NotificationsPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {timeAgo(n.created_at)}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <Link href={`/notifications/${n.id}`} className="link-brand">
+                        View
+                      </Link>
                     </td>
                   </tr>
                 ))}

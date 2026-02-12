@@ -7,7 +7,10 @@ interface GenerateOptions {
   prompt?: string;
   systemPrompt?: string;
   resolutionNotes?: string;
+  model?: string;
 }
+
+const AI_MODELS = ["gpt-5.1", "gpt-4.1", "gpt-4o-mini", "o3-mini"];
 
 interface ChangelogContentCreatorProps {
   onGenerate: (options?: GenerateOptions) => Promise<void>;
@@ -19,6 +22,15 @@ interface ChangelogContentCreatorProps {
   generateLabel?: string;
   manualPlaceholder?: string;
 }
+
+const MANUAL_TEMPLATE = `**What happened:**
+[Describe the issue in simple, non-technical terms]
+
+**How we fixed it:**
+[Explain the resolution, focusing on the outcome]
+
+**Going forward:**
+[Brief reassurance that this has been resolved]`;
 
 export default function ChangelogContentCreator({
   onGenerate,
@@ -40,6 +52,7 @@ export default function ChangelogContentCreator({
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [editedSystemPrompt, setEditedSystemPrompt] = useState("");
   const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+  const [selectedModel, setSelectedModel] = useState(AI_MODELS[0]);
 
   const handlePreview = async () => {
     if (!onPreview) {
@@ -65,6 +78,7 @@ export default function ChangelogContentCreator({
       prompt: editedPrompt,
       systemPrompt: editedSystemPrompt,
       resolutionNotes: resolutionNotes || undefined,
+      model: selectedModel,
     });
     setPreview(null);
   };
@@ -125,12 +139,28 @@ export default function ChangelogContentCreator({
           <textarea
             value={editedPrompt}
             onChange={(e) => setEditedPrompt(e.target.value)}
-            rows={5}
+            rows={8}
             className="input-field font-mono text-xs leading-relaxed"
           />
           <p className="text-xs text-text-muted mt-1">
             This is what will be sent to OpenAI. You can edit it before generating.
           </p>
+        </div>
+
+        {/* Model selector */}
+        <div>
+          <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
+            AI Model
+          </label>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="input-field w-auto font-mono text-sm"
+          >
+            {AI_MODELS.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
         </div>
 
         {/* System prompt */}
@@ -156,7 +186,7 @@ export default function ChangelogContentCreator({
               <textarea
                 value={editedSystemPrompt}
                 onChange={(e) => setEditedSystemPrompt(e.target.value)}
-                rows={8}
+                rows={12}
                 className="input-field font-mono text-xs leading-relaxed"
               />
               <p className="text-xs text-text-muted mt-1">
@@ -196,7 +226,7 @@ export default function ChangelogContentCreator({
         <textarea
           value={manualContent}
           onChange={(e) => setManualContent(e.target.value)}
-          rows={5}
+          rows={10}
           placeholder={manualPlaceholder}
           className="input-field"
         />
@@ -242,7 +272,7 @@ export default function ChangelogContentCreator({
           </button>
         )}
         <button
-          onClick={() => setShowManualForm(true)}
+          onClick={() => { setManualContent(MANUAL_TEMPLATE); setShowManualForm(true); }}
           disabled={generating || loadingPreview}
           className="btn-secondary px-4 py-2"
         >

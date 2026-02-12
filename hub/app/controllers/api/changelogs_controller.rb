@@ -15,7 +15,8 @@ module Api
         custom_prompt: params[:prompt],
         custom_system_prompt: params[:system_prompt],
         resolution_notes: params[:resolution_notes],
-        force: ActiveModel::Type::Boolean.new.cast(params[:force])
+        force: ActiveModel::Type::Boolean.new.cast(params[:force]),
+        model: params[:model]
       )
       render json: serialize_entry(entry), status: :created
     rescue ChangelogGeneratorService::InvalidTicketStatus => e

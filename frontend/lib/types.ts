@@ -65,6 +65,52 @@ export interface TicketDetail extends Ticket {
   events: TicketEvent[];
 }
 
+export interface NotificationDetail extends Notification {
+  ticket: {
+    id: string;
+    title: string;
+    status: string;
+    ticket_type: string;
+    priority: number;
+    original_channel: string;
+    reporter: { name: string; email: string | null } | null;
+  } | null;
+  changelog_entry: {
+    id: string;
+    content: string;
+    status: string;
+    ai_model: string;
+    approved_by: string | null;
+    approved_at: string | null;
+  } | null;
+  related_tickets: {
+    id: string;
+    title: string;
+    status: string;
+    ticket_type: string;
+    priority: number;
+    original_channel: string;
+    reporter: { name: string; email: string | null } | null;
+  }[];
+}
+
+export interface ChangelogEntryWithTicket extends ChangelogEntry {
+  ai_prompt_tokens: number;
+  ai_completion_tokens: number;
+  ticket: {
+    id: string;
+    title: string;
+    status: string;
+    reporter: { name: string } | null;
+  } | null;
+  related_tickets: {
+    id: string;
+    title: string;
+    status: string;
+    reporter: { name: string } | null;
+  }[];
+}
+
 export interface TicketGroupTicket {
   id: string;
   title: string;

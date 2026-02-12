@@ -22,6 +22,7 @@ Rails.application.routes.draw do
     end
 
     resources :notifications, only: [:index, :show]
+    resources :changelog_entries, only: [:index]
 
     resources :ticket_groups, only: [:index, :show, :create] do
       member do

@@ -1,4 +1,4 @@
-import { Ticket, TicketDetail, ChangelogEntry, Notification, TicketGroup } from "./types";
+import { Ticket, TicketDetail, ChangelogEntry, Notification, NotificationDetail, ChangelogEntryWithTicket, TicketGroup } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
@@ -90,13 +90,14 @@ export function previewChangelog(ticketId: string): Promise<ChangelogPreview> {
 
 export function generateChangelog(
   ticketId: string,
-  options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string; force?: boolean }
+  options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string; model?: string; force?: boolean }
 ): Promise<ChangelogEntry> {
   if (!options) return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/generate_changelog`, "POST");
   const body: Record<string, unknown> = {};
   if (options.prompt) body.prompt = options.prompt;
   if (options.systemPrompt) body.system_prompt = options.systemPrompt;
   if (options.resolutionNotes) body.resolution_notes = options.resolutionNotes;
+  if (options.model) body.model = options.model;
   if (options.force) body.force = true;
   return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/generate_changelog`, "POST", Object.keys(body).length > 0 ? body : undefined);
 }
@@ -249,13 +250,14 @@ export function previewGroupContent(groupId: string): Promise<ChangelogPreview> 
 
 export function generateGroupContent(
   groupId: string,
-  options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string }
+  options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string; model?: string }
 ): Promise<{ content: string }> {
   if (!options) return mutate<{ content: string }>(`/api/ticket_groups/${groupId}/generate_content`, "POST");
   const body: Record<string, unknown> = {};
   if (options.prompt) body.prompt = options.prompt;
   if (options.systemPrompt) body.system_prompt = options.systemPrompt;
   if (options.resolutionNotes) body.resolution_notes = options.resolutionNotes;
+  if (options.model) body.model = options.model;
   return mutate<{ content: string }>(`/api/ticket_groups/${groupId}/generate_content`, "POST", Object.keys(body).length > 0 ? body : undefined);
 }
 
@@ -265,6 +267,17 @@ export function fetchNotifications(filters?: { status?: string; channel?: string
   if (filters?.status && filters.status !== "all") params.status = filters.status;
   if (filters?.channel && filters.channel !== "all") params.channel = filters.channel;
   return request<Notification[]>("/api/notifications", Object.keys(params).length > 0 ? params : undefined);
+}
+
+export function fetchNotification(id: string): Promise<NotificationDetail> {
+  return request<NotificationDetail>(`/api/notifications/${id}`);
+}
+
+// Changelog Entries
+export function fetchChangelogEntries(filters?: { status?: string }): Promise<ChangelogEntryWithTicket[]> {
+  const params: Record<string, string> = {};
+  if (filters?.status && filters.status !== "all") params.status = filters.status;
+  return request<ChangelogEntryWithTicket[]>("/api/changelog_entries", Object.keys(params).length > 0 ? params : undefined);
 }
 
 // Dead Letter Jobs

@@ -3,7 +3,7 @@ FactoryBot.define do
     ticket
     content { Faker::Lorem.paragraph }
     status { "draft" }
-    ai_model { "gpt-4o-mini" }
+    ai_model { "gpt-5.1" }
     ai_prompt_tokens { 150 }
     ai_completion_tokens { 80 }
 

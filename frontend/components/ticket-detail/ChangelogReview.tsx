@@ -45,7 +45,7 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
     load();
   }, [load]);
 
-  const handleGenerate = async (options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string; force?: boolean }) => {
+  const handleGenerate = async (options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string; model?: string; force?: boolean }) => {
     setActionLoading(true);
     try {
       const entry = await generateChangelog(ticketId, options);
@@ -59,7 +59,7 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
     }
   };
 
-  const handleRegenerate = async (options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string }) => {
+  const handleRegenerate = async (options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string; model?: string }) => {
     await handleGenerate({ ...options, force: true });
   };
 
@@ -262,7 +262,7 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              rows={5}
+              rows={10}
               className="input-field"
             />
             <div className="flex gap-2">
