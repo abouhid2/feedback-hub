@@ -11,6 +11,7 @@ import {
   ForceFailStatus,
 } from "../../lib/api";
 import { timeAgo } from "../../lib/constants";
+import PageHeader from "../../components/PageHeader";
 
 const STATUS_FILTERS = ["all", "unresolved", "resolved", "retried"] as const;
 
@@ -105,16 +106,15 @@ export default function DeadLettersPage() {
   const armedCount = forceFailJobs.filter((j) => j.armed).length;
 
   return (
-    <main className="p-6 max-w-7xl mx-auto">
-      <div className="sticky top-0 bg-[var(--bg-main)] z-10 pb-4">
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-          Dead Letter Queue
-        </h1>
-        <p className="text-sm text-[var(--text-secondary)] mt-1">
-          Jobs that failed permanently after exhausting all retries
-        </p>
-      </div>
+    <div className="min-h-screen">
+      <PageHeader
+        title="Dead Letter Queue"
+        subtitle="Jobs that failed permanently after exhausting all retries"
+      >
+        <span>Auto-refreshing every 10s</span>
+      </PageHeader>
 
+      <main className="max-w-7xl mx-auto px-4 py-6">
       {/* Force Fail Panel */}
       <div className="card mb-6">
         <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-1">
@@ -251,6 +251,7 @@ export default function DeadLettersPage() {
           ))}
         </div>
       )}
-    </main>
+      </main>
+    </div>
   );
 }

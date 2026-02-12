@@ -1,12 +1,12 @@
 #!/bin/bash
-# Mainder Feedback Hub — Start all services
+# Feedback Hub — Start all services
 # Usage: ./start.sh
 
 set -e
 
 eval "$(rbenv init -)"
 
-echo "=== Mainder Feedback Hub ==="
+echo "=== Feedback Hub ==="
 echo ""
 echo "Starting services..."
 echo ""

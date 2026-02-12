@@ -7,10 +7,12 @@ import {
   batchApproveAll,
   batchApproveSelected,
   batchRejectAll,
+  simulateBatchReview,
 } from "../../lib/api";
 import BatchActions from "../../components/batch-review/BatchActions";
 import NotificationTable from "../../components/batch-review/NotificationTable";
 import Toast from "../../components/Toast";
+import PageHeader from "../../components/PageHeader";
 
 export default function BatchReviewsPage() {
   const [notifications, setNotifications] = useState<BatchNotification[]>([]);
@@ -18,6 +20,20 @@ export default function BatchReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
+  const [simulating, setSimulating] = useState(false);
+
+  const handleSimulateBatch = async () => {
+    setSimulating(true);
+    try {
+      await simulateBatchReview();
+      setToast({ message: "Batch review simulated", type: "success" });
+      await refresh();
+    } catch {
+      setToast({ message: "Failed to simulate batch review", type: "error" });
+    } finally {
+      setSimulating(false);
+    }
+  };
 
   const refresh = useCallback(async () => {
     try {
@@ -102,19 +118,19 @@ export default function BatchReviewsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="header-sticky">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Batch Review</h1>
-            <p className="text-sm text-white/70">
-              Review pending notifications before they are sent to reporters
-            </p>
-          </div>
-          <div className="text-right text-sm text-white/70">
-            Auto-refreshing every 10s
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        title="Batch Review"
+        subtitle="Review pending notifications before they are sent to reporters"
+      >
+        <button
+          onClick={handleSimulateBatch}
+          disabled={simulating}
+          className="simulate-btn-batch text-xs px-3 py-1"
+        >
+          {simulating ? "Creating..." : "Simulate Batch"}
+        </button>
+        <span>Auto-refreshing every 10s</span>
+      </PageHeader>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {notifications.length > 0 && (

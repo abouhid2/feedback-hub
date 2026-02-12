@@ -3,10 +3,17 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Ticket } from "../lib/types";
-import { fetchTickets as apiFetchTickets, fetchMetrics } from "../lib/api";
+import { fetchTickets as apiFetchTickets, fetchMetrics, simulateTicket } from "../lib/api";
 import StatsCards from "../components/dashboard/StatsCards";
 import TicketFilters from "../components/dashboard/TicketFilters";
 import TicketTable from "../components/dashboard/TicketTable";
+import PageHeader from "../components/PageHeader";
+
+const CHANNELS = [
+  { key: "slack" as const, label: "Slack", cls: "simulate-btn-slack" },
+  { key: "intercom" as const, label: "Intercom", cls: "simulate-btn-intercom" },
+  { key: "whatsapp" as const, label: "WhatsApp", cls: "simulate-btn-whatsapp" },
+];
 
 interface Filters {
   channel: string;
@@ -30,6 +37,18 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, slack: 0, intercom: 0, whatsapp: 0, critical: 0 });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [simulating, setSimulating] = useState<string | null>(null);
+
+  const handleSimulateTicket = async (channel: "slack" | "intercom" | "whatsapp") => {
+    setSimulating(channel);
+    try {
+      await simulateTicket(channel);
+    } catch {
+      // silent — dashboard will pick up via auto-refresh
+    } finally {
+      setSimulating(null);
+    }
+  };
 
   const refreshData = useCallback(async () => {
     try {
@@ -68,22 +87,30 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen">
-      <header className="header-sticky">
-        <div className="max-w-7xl mx-auto px-4 py-5 flex items-center justify-between">
-          <div>
-
-          </div>
-          <div className="text-right text-sm text-white/70">
-            {lastUpdated && (
-              <span>Updated: {lastUpdated.toLocaleTimeString()}</span>
-            )}
-            <div className="flex items-center gap-1 mt-1">
-              <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span>Auto-refreshing every 5s</span>
-            </div>
+      <PageHeader title="Dashboard" subtitle="All tickets across channels">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-white/60 uppercase mr-1">Simulate:</span>
+          {CHANNELS.map((ch) => (
+            <button
+              key={ch.key}
+              onClick={() => handleSimulateTicket(ch.key)}
+              disabled={simulating !== null}
+              className={`${ch.cls} text-xs px-3 py-1`}
+            >
+              {simulating === ch.key ? "..." : ch.label}
+            </button>
+          ))}
+        </div>
+        <div className="text-right">
+          {lastUpdated && (
+            <span>Updated: {lastUpdated.toLocaleTimeString()}</span>
+          )}
+          <div className="flex items-center gap-1 mt-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            <span>Auto-refreshing every 5s</span>
           </div>
         </div>
-      </header>
+      </PageHeader>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         <StatsCards stats={stats} />

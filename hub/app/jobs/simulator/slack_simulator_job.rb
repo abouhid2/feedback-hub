@@ -28,7 +28,7 @@ module Simulator
       payload = {
         token: "xoxb-#{SecureRandom.hex(12)}",
         team_id: "T#{SecureRandom.hex(4).upcase}",
-        team_domain: "mainder",
+        team_domain: "feedback-hub",
         channel_id: "C_#{channel.upcase}",
         channel_name: channel,
         user_id: "U_#{user_name.upcase}",
@@ -43,7 +43,7 @@ module Simulator
           priority: %w[critica alta media baja].sample,
           incident: SPANISH_BUGS.sample,
           agency: agency,
-          job_id: "https://love.mainder.ai/es/positions/#{SecureRandom.hex(6)}",
+          job_id: "https://feedback-hub.example.com/positions/#{SecureRandom.hex(6)}",
           additional_details: Faker::Lorem.sentence(word_count: 8)
         }
       }

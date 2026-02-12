@@ -1,4 +1,4 @@
-# Mainder Feedback - Changelog Hub: Execution Plan
+# Feedback Hub: Execution Plan
 
 ## Deliverables
 
@@ -176,7 +176,7 @@
   - Slack: Reply to original thread via `chat.postMessage` with `thread_ts`
   - Intercom: Post reply in conversation via Intercom API
   - WhatsApp: Send template message (pre-approved) via WhatsApp Business API
-  - In-App: Store notification for display in Mainder platform
+  - In-App: Store notification for display in platform
 - [x] WhatsApp 24h window handling:
   - If < 24h since last user message → send session message (free-form text)
   - If > 24h → send pre-approved Template Message (e.g., "Your reported issue has been resolved: {summary}")

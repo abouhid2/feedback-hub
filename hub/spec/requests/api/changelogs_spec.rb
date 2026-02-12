@@ -60,19 +60,19 @@ RSpec.describe "Api::Tickets::Changelogs", type: :request do
     let!(:entry) { create(:changelog_entry, ticket: ticket, status: "draft") }
 
     it "approves the entry and enqueues notification dispatch" do
-      patch "/api/tickets/#{ticket.id}/approve_changelog", params: { approved_by: "admin@mainder.com" }
+      patch "/api/tickets/#{ticket.id}/approve_changelog", params: { approved_by: "admin@feedback-hub.com" }
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
       expect(body["status"]).to eq("approved")
-      expect(body["approved_by"]).to eq("admin@mainder.com")
+      expect(body["approved_by"]).to eq("admin@feedback-hub.com")
       expect(NotificationDispatchJob).to have_been_enqueued
     end
 
     it "returns unprocessable entity when entry is already approved" do
       entry.update!(status: "approved", approved_by: "someone", approved_at: Time.current)
 
-      patch "/api/tickets/#{ticket.id}/approve_changelog", params: { approved_by: "admin@mainder.com" }
+      patch "/api/tickets/#{ticket.id}/approve_changelog", params: { approved_by: "admin@feedback-hub.com" }
 
       expect(response).to have_http_status(:unprocessable_entity)
     end
@@ -82,7 +82,7 @@ RSpec.describe "Api::Tickets::Changelogs", type: :request do
     let!(:entry) { create(:changelog_entry, ticket: ticket, status: "draft") }
 
     it "rejects a draft entry and returns it" do
-      patch "/api/tickets/#{ticket.id}/reject_changelog", params: { rejected_by: "admin@mainder.com", reason: "Needs more detail" }
+      patch "/api/tickets/#{ticket.id}/reject_changelog", params: { rejected_by: "admin@feedback-hub.com", reason: "Needs more detail" }
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -92,7 +92,7 @@ RSpec.describe "Api::Tickets::Changelogs", type: :request do
     it "returns unprocessable entity when entry is not a draft" do
       entry.update!(status: "approved", approved_by: "someone", approved_at: Time.current)
 
-      patch "/api/tickets/#{ticket.id}/reject_changelog", params: { rejected_by: "admin@mainder.com", reason: "Bad" }
+      patch "/api/tickets/#{ticket.id}/reject_changelog", params: { rejected_by: "admin@feedback-hub.com", reason: "Bad" }
 
       expect(response).to have_http_status(:unprocessable_entity)
     end

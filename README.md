@@ -1,4 +1,4 @@
-# Mainder Feedback Hub
+# Feedback Hub
 
 **Unified feedback intake, AI-powered triage, and automated resolution notifications — across Slack, Intercom, and WhatsApp.**
 

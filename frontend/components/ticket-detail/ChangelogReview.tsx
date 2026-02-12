@@ -76,7 +76,7 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
   const handleApprove = async () => {
     setActionLoading(true);
     try {
-      const entry = await approveChangelog(ticketId, "admin@mainder.com");
+      const entry = await approveChangelog(ticketId, "admin@feedback-hub.com");
       setChangelog(entry);
       setToast({ message: "Changelog approved", type: "success" });
     } catch (e) {
@@ -90,7 +90,7 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
     if (!rejectReason.trim()) return;
     setActionLoading(true);
     try {
-      const entry = await rejectChangelog(ticketId, "admin@mainder.com", rejectReason);
+      const entry = await rejectChangelog(ticketId, "admin@feedback-hub.com", rejectReason);
       setChangelog(entry);
       setShowRejectForm(false);
       setRejectReason("");

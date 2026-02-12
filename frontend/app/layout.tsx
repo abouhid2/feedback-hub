@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mainder Feedback Hub",
+  title: "Feedback Hub",
   description: "Multi-channel feedback ingestion dashboard",
 };
 

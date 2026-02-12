@@ -7,6 +7,7 @@ import {
   PRIORITY_LABELS,
   TYPE_LABELS,
 } from "../../lib/constants";
+import PageHeader from "../../components/PageHeader";
 import {
   PieChart,
   Pie,
@@ -118,29 +119,26 @@ export default function MetricsPage() {
 
   return (
     <div>
-      <header className="header-sticky">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Metrics Dashboard</h1>
-            <p className="text-sm text-white/70">Ticket volume, distribution, and top reporters</p>
-          </div>
-          <div className="flex gap-1">
-            {PERIODS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPeriod(p.value)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  period === p.value
-                    ? "bg-white text-brand"
-                    : "bg-white/20 text-white hover:bg-white/30"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+      <PageHeader
+        title="Metrics Dashboard"
+        subtitle="Ticket volume, distribution, and top reporters"
+      >
+        <div className="flex gap-1">
+          {PERIODS.map((p) => (
+            <button
+              key={p.value}
+              onClick={() => setPeriod(p.value)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                period === p.value
+                  ? "bg-white text-brand"
+                  : "bg-white/20 text-white hover:bg-white/30"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
-      </header>
+      </PageHeader>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
       {loading && !metrics ? (

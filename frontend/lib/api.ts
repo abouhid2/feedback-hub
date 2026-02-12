@@ -97,7 +97,7 @@ export function simulateTicket(channel: "slack" | "intercom" | "whatsapp"): Prom
     slack: () => ({
       token: `xoxb-${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`,
       team_id: `T${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-      team_domain: "mainder",
+      team_domain: "feedback-hub",
       channel_id: "C_BUGS",
       channel_name: "bugs",
       user_id: `U_TEST${crypto.randomUUID().slice(0, 6).toUpperCase()}`,
@@ -112,7 +112,7 @@ export function simulateTicket(channel: "slack" | "intercom" | "whatsapp"): Prom
         priority: ["critica", "alta", "media", "baja"][Math.floor(Math.random() * 4)],
         incident: "Test ticket from frontend simulator",
         agency: "TestAgency",
-        job_id: `https://love.mainder.ai/es/positions/${crypto.randomUUID().slice(0, 12)}`,
+        job_id: `https://love.feedback-hub.ai/es/positions/${crypto.randomUUID().slice(0, 12)}`,
         additional_details: "Created via frontend simulate button",
       },
     }),

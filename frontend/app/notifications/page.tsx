@@ -10,6 +10,7 @@ import {
   NOTIFICATION_STATUS_LABELS,
   timeAgo,
 } from "../../lib/constants";
+import PageHeader from "../../components/PageHeader";
 
 const CHANNEL_OPTIONS = ["all", "slack", "intercom", "whatsapp"];
 const STATUS_OPTIONS = ["all", "pending", "sent", "failed", "pending_batch_review"];
@@ -43,19 +44,12 @@ export default function NotificationsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="header-sticky">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Notification History</h1>
-            <p className="text-sm text-white/70">
-              All notifications sent, pending, and failed
-            </p>
-          </div>
-          <div className="text-right text-sm text-white/70">
-            Auto-refreshing every 10s
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        title="Notification History"
+        subtitle="All notifications sent, pending, and failed"
+      >
+        <span>Auto-refreshing every 10s</span>
+      </PageHeader>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="card mb-4 flex items-center gap-4">
