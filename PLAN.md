@@ -151,16 +151,16 @@
 
 ---
 
-## Phase 6: Changelog Generation & Resolution
+## Phase 6: Changelog Generation & Resolution ✅ DONE
 
 > When a ticket hits "Done", generate a changelog and close the loop.
 
-- [ ] Detect resolution: Notion poll detects status → Done, or manual action in dashboard
-- [ ] `ChangelogGeneratorJob`:
+- [x] Detect resolution: Notion poll detects status → Done, or manual action in dashboard
+- [x] `ChangelogGeneratorJob`:
   - Gather context: original report + resolution notes from Notion page
   - Call OpenAI to draft non-technical changelog entry
   - Store as `changelog_entries` with `status: :draft`
-- [ ] Human review required before sending (the "Release Valve"):
+- [x] Human review required before sending (the "Release Valve"):
   - Support agent sees AI draft in dashboard
   - Can edit the text
   - Clicks "Approve & Send" → status changes to `:approved`
@@ -168,11 +168,11 @@
 
 ---
 
-## Phase 7: Closing the Loop (Notifications)
+## Phase 7: Closing the Loop (Notifications) ✅ DONE
 
 > Notify the original reporter back through their source channel.
 
-- [ ] `NotificationDispatchJob` — triggered after changelog approval
+- [x] `NotificationDispatchJob` — triggered after changelog approval
   - Slack: Reply to original thread via `chat.postMessage` with `thread_ts`
   - Intercom: Post reply in conversation via Intercom API
   - WhatsApp: Send template message (pre-approved) via WhatsApp Business API
@@ -183,12 +183,12 @@
   - If template not available → mark notification as `channel_restricted`, log for manual follow-up
   - `last_message_at` tracked on `reporter_identities` table
   - `WhatsappDeliveryService` handles all 3 scenarios
-- [ ] Mass-resolution spam prevention:
+- [x] Mass-resolution spam prevention:
   - If a single Notion task resolves N > 5 tickets, enter **"Review before Send" mode**
   - Queue all notifications with `status: :pending_batch_review`
   - Support agent sees batch in dashboard, can approve all or selectively
   - When approved: throttled dispatch via Sidekiq rate-limited queue (e.g., 10 msgs/sec for Slack, 1/sec for WhatsApp)
-- [ ] Retry with exponential backoff:
+- [x] Retry with exponential backoff:
   - Failed notifications: retry 3 times (1min, 5min, 30min)
   - After 3 failures: mark as `failed`, surface in dashboard for manual retry
   - Store attempt count + last error on `notifications` table
@@ -252,50 +252,50 @@
 
 ---
 
-## Phase 10: Sequence Diagrams
+## Phase 10: Sequence Diagrams ✅ DONE
 
 > End-to-end flows for the design document.
 
-- [ ] **Main Flow:** User reports on WhatsApp → Webhook intake → Normalize → AI Triage → Human Review → Notion Sync → Dev Fixes → Notion Poll detects Done → Changelog generated → Human approves → Notification sent back via WhatsApp
-- [ ] **Cross-channel duplicate flow:** Same bug reported on Intercom + Backoffice → AI similarity detection → Link/merge tickets
-- [ ] **Mass-resolution flow:** Notion task Done → 50 linked tickets → Batch review queue → Throttled notifications
+- [x] **Main Flow:** User reports on WhatsApp → Webhook intake → Normalize → AI Triage → Human Review → Notion Sync → Dev Fixes → Notion Poll detects Done → Changelog generated → Human approves → Notification sent back via WhatsApp
+- [x] **Cross-channel duplicate flow:** Same bug reported on Intercom + Backoffice → AI similarity detection → Link/merge tickets
+- [x] **Mass-resolution flow:** Notion task Done → 50 linked tickets → Batch review queue → Throttled notifications
 
 ---
 
-## Phase 11: Edge Cases & Risk Analysis
+## Phase 11: Edge Cases & Risk Analysis ✅ DONE
 
 > Must be explicitly addressed in the document.
 
-- [ ] **Idempotency:** Unique constraints on (source, external_id), idempotency keys on all webhook handlers
-- [ ] **Deduplication:** Same-channel (external_id) + cross-channel (AI similarity within time window)
-- [ ] **WhatsApp 24h Window:** Template messages for late notifications, fallback to manual
-- [ ] **AI Hallucinations:** Human-in-the-loop mandatory before any customer-facing message
-- [ ] **PII & AI Privacy:** PiiScrubber before OpenAI calls, data minimization, encrypted storage
-- [ ] **Spam & Rate Limits:** Batch review queue for mass-resolutions, throttled Sidekiq queues per channel
-- [ ] **External dependency failures:** Sidekiq retry with exponential backoff, no data loss if Notion/OpenAI/Slack is down
+- [x] **Idempotency:** Unique constraints on (source, external_id), idempotency keys on all webhook handlers
+- [x] **Deduplication:** Same-channel (external_id) + cross-channel (AI similarity within time window)
+- [x] **WhatsApp 24h Window:** Template messages for late notifications, fallback to manual
+- [x] **AI Hallucinations:** Human-in-the-loop mandatory before any customer-facing message
+- [x] **PII & AI Privacy:** PiiScrubber before OpenAI calls, data minimization, encrypted storage
+- [x] **Spam & Rate Limits:** Batch review queue for mass-resolutions, throttled Sidekiq queues per channel
+- [x] **External dependency failures:** Sidekiq retry with exponential backoff, no data loss if Notion/OpenAI/Slack is down
 - [x] **Observability:** StructuredLogger (JSON output), JobLogging concern, DeadLetterHandlerJob, Sidekiq death handler, dead letter queue API + frontend page
 
 ---
 
-## Phase 12: Compile Technical Design Document — In Progress
+## Phase 12: Compile Technical Design Document ✅ DONE
 
 > Assemble everything into the final deliverable.
-> **Output:** `Mainder Feedback Hub - Technical Design.docx`
+> **Output:** `README.md` (comprehensive technical design document)
 
 - [x] Title page + table of contents
-- [ ] Executive summary / problem statement
-- [x] ERD diagram (Section 2 of .docx)
-- [x] System architecture diagram (Section 3 of .docx)
-- [x] Data model documentation with justifications (Section 2 of .docx)
-- [ ] Ingestion layer design
-- [ ] AI enrichment pipeline design
-- [ ] Notion sync strategy with justification
-- [ ] Changelog & notification flow design
-- [ ] API specification
-- [ ] Frontend component descriptions
-- [ ] Sequence diagrams
-- [ ] Edge cases & risk analysis
-- [ ] Trade-offs and alternatives considered
+- [x] Executive summary / problem statement
+- [x] ERD diagram (Mermaid)
+- [x] System architecture diagram (Mermaid)
+- [x] Data model documentation with justifications
+- [x] Ingestion layer design
+- [x] AI enrichment pipeline design
+- [x] Notion sync strategy with justification
+- [x] Changelog & notification flow design
+- [x] API specification
+- [x] Frontend component descriptions
+- [x] Sequence diagrams
+- [x] Edge cases & risk analysis
+- [x] Trade-offs and alternatives considered
 
 ---
 
@@ -322,8 +322,8 @@
 | 7.2 | Frontend — Batch Review + Notifications | ✅ Done (batch approve/reject, notification history, filters) |
 | 7.3 | Frontend — Metrics Dashboard | ✅ Done (recharts, period filter, clickable charts, type inference) |
 | 7.4 | Observability (Phase 11 partial) | ✅ Done (structured logging, dead letter queue, force-fail, 259 specs) |
-| 8 | Diagrams + Edge Cases (Phases 10-11) | Not started |
-| 9 | Final Document (Phase 12) | In progress |
+| 8 | Diagrams + Edge Cases (Phases 10-11) | ✅ Done (README.md) |
+| 9 | Final Document (Phase 12) | ✅ Done (README.md — comprehensive technical design document) |
 
 ---
 
