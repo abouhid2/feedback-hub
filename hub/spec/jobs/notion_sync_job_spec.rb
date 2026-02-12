@@ -13,13 +13,24 @@ RSpec.describe NotionSyncJob, type: :job do
       expect { described_class.new.perform(SecureRandom.uuid) }.not_to raise_error
     end
 
-    it "retries with delay on RateLimitError" do
+    it "retries on RateLimitError" do
       allow(NotionSyncService).to receive(:push).and_raise(
         NotionSyncService::RateLimitError.new(retry_after: 5)
       )
 
-      expect { described_class.perform_now(ticket.id) }
-        .to raise_error(NotionSyncService::RateLimitError)
+      expect {
+        described_class.perform_now(ticket.id)
+      }.to have_enqueued_job(described_class)
+    end
+
+    it "retries on ApiError" do
+      allow(NotionSyncService).to receive(:push).and_raise(
+        NotionSyncService::ApiError, "Notion API error: 500"
+      )
+
+      expect {
+        described_class.perform_now(ticket.id)
+      }.to have_enqueued_job(described_class)
     end
   end
 end

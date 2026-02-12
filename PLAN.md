@@ -83,7 +83,7 @@
 
 ### Schema Migrations
 - [x] **Redesign `changelog_entries`** — removed field_name/old_value/new_value/changed_by; added `content` (text), `status` (draft/approved/rejected), `approved_by`, `approved_at`, `ai_model`, `ai_prompt_tokens`, `ai_completion_tokens`
-- [x] **Expand `notifications`** — added `changelog_entry_id` (FK), `retry_count`, `last_error`, `delivered_at`; channels now include intercom/whatsapp; statuses include `pending_batch_review`
+- [x] **Expand `notifications`** — added `changelog_entry_id` (FK), `retry_count`, `last_error`, `delivered_at`; channels now include intercom/whatsapp; statuses: pending/sent/failed/permanently_failed
 - [x] **Add `notion_page_id` to tickets** — unique partial index where not null
 
 ### Model Updates + Specs (63 specs)
@@ -102,9 +102,6 @@
 ### Notification Dispatch (15 specs)
 - [x] `NotificationDispatchService` — creates notification, delivers via platform API, handles success/failure, retry with backoff
 - [x] `NotificationDispatchJob` + `NotificationRetryJob`
-
-### Batch Review (7 specs)
-- [x] `BatchReviewService` — `.should_batch?` (>5 in 5min), `.approve_all`, `.approve_selected`, `.reject_all`
 
 ### Notion Two-Way Sync (17 specs)
 - [x] `NotionSyncService` — push to Notion (create/update pages), maps ticket fields to Notion properties
@@ -184,13 +181,12 @@
   - `last_message_at` tracked on `reporter_identities` table
   - `WhatsappDeliveryService` handles all 3 scenarios
 - [x] Mass-resolution spam prevention:
-  - If a single Notion task resolves N > 5 tickets, enter **"Review before Send" mode**
-  - Queue all notifications with `status: :pending_batch_review`
-  - Support agent sees batch in dashboard, can approve all or selectively
-  - When approved: throttled dispatch via Sidekiq rate-limited queue (e.g., 10 msgs/sec for Slack, 1/sec for WhatsApp)
-- [x] Retry with exponential backoff:
-  - Failed notifications: retry 3 times (1min, 5min, 30min)
-  - After 3 failures: mark as `failed`, surface in dashboard for manual retry
+  - Ticket grouping sends ONE notification on primary ticket's channel (not one per ticket)
+  - Human-in-the-loop changelog approval acts as a natural throttle
+- [x] Retry with limits:
+  - Failed notifications: retry up to 5 times via `NotificationRetryJob` (`MAX_RETRIES = 5`)
+  - After 5 failures: mark as `permanently_failed`, surface in dashboard for investigation
+  - Notion jobs use `retry_on` with polynomial backoff (3 attempts)
   - Store attempt count + last error on `notifications` table
 
 ---
@@ -205,11 +201,8 @@
 - [x] `PATCH /api/tickets/:id/approve_changelog` — Approve AI message for sending
 - [x] `GET /api/tickets/:id/changelog` — View current changelog entry with status
 - [x] `GET /api/notifications` — List with filters (status, channel, ticket_id)
-- [x] `GET /api/notifications/:id` — Detail with retry history
-- [x] `GET /api/batch_reviews/pending` — Pending batch review notifications
-- [x] `POST /api/batch_reviews/approve_all` — Approve all held notifications
-- [x] `POST /api/batch_reviews/approve_selected` — Approve selected notifications
-- [x] `POST /api/batch_reviews/reject_all` — Reject all held notifications
+- [x] `GET /api/notifications/:id` — Detail with nested ticket, changelog_entry, related_tickets
+- [x] `GET /api/changelog_entries` — List with status filter, nested ticket, related_tickets
 - [x] `GET /api/metrics/summary` — Volume by source/type/priority/status, top reporters, period filtering (24h/7d/30d)
 - [x] `POST /api/tickets` — Manual ticket creation (Backoffice) + created event
 - [x] `PATCH /api/tickets/:id` — Update ticket (status, priority, type) + status_changed event
@@ -236,11 +229,10 @@
   - "Approve & Send" / "Reject" buttons to trigger notifications
   - StatusActions component for ticket lifecycle
   - SimulateButtons + Toast notifications
-- [x] **Batch Review View** — For mass-resolution scenarios
-  - `/batch-reviews` page with pending notifications grouped by changelog entry
-  - "Approve All" / "Approve Selected" / "Reject All" with confirmation dialogs
+- [x] **Changelog Entries View** — `/changelog-entries` page with status filter, auto-refresh, related tickets
 - [x] **Notification History** — Delivery status tracking
-  - `/notifications` page with status/channel filters
+  - `/notifications` page with status/channel filters + "View" links to detail page
+  - `/notifications/[id]` detail page with nested ticket, changelog entry, related tickets, error card
   - Sidebar navigation
 - [x] **Metrics Dashboard** — recharts (PieChart, BarChart):
   - Ticket volume by channel, type, priority, status
@@ -258,7 +250,7 @@
 
 - [x] **Main Flow:** User reports on WhatsApp → Webhook intake → Normalize → AI Triage → Human Review → Notion Sync → Dev Fixes → Notion Poll detects Done → Changelog generated → Human approves → Notification sent back via WhatsApp
 - [x] **Cross-channel duplicate flow:** Same bug reported on Intercom + Backoffice → AI similarity detection → Link/merge tickets
-- [x] **Mass-resolution flow:** Notion task Done → 50 linked tickets → Batch review queue → Throttled notifications
+- [x] **Mass-resolution flow:** Notion task Done → ticket groups → single notification on primary ticket's channel
 
 ---
 
@@ -271,7 +263,7 @@
 - [x] **WhatsApp 24h Window:** Template messages for late notifications, fallback to manual
 - [x] **AI Hallucinations:** Human-in-the-loop mandatory before any customer-facing message
 - [x] **PII & AI Privacy:** PiiScrubber before OpenAI calls, data minimization, encrypted storage
-- [x] **Spam & Rate Limits:** Batch review queue for mass-resolutions, throttled Sidekiq queues per channel
+- [x] **Spam & Rate Limits:** Ticket grouping for mass-resolutions, bounded retry limits (MAX_RETRIES=5), Notion job retry_on with polynomial backoff
 - [x] **External dependency failures:** Sidekiq retry with exponential backoff, no data loss if Notion/OpenAI/Slack is down
 - [x] **Observability:** StructuredLogger (JSON output), JobLogging concern, DeadLetterHandlerJob, Sidekiq death handler, dead letter queue API + frontend page
 
@@ -308,7 +300,7 @@
 | 3 | Ingestion (Phase 3) | ✅ Done (prototype) |
 | 3.5 | TDD Core Services (Phase 3.5) | ✅ Done (122 specs, 6 services, 5 jobs) |
 | 3.6 | Changelog API Endpoints (Phase 3.6) | ✅ Done (generate, approve, view — strict RED→GREEN TDD) |
-| 3.7 | Notifications + Batch Review API (Phase 3.7) | ✅ Done (list, detail, batch approve/reject — RED→GREEN TDD) |
+| 3.7 | Notifications + Changelog Entries API (Phase 3.7) | ✅ Done (list, detail, changelog entries index — RED→GREEN TDD) |
 | 3.8 | Ticket CRUD API (Phase 3.8) | ✅ Done (create + update with audit events — RED→GREEN TDD) |
 | 3.9 | Metrics API (Phase 3.9) | ✅ Done (summary endpoint — RED→GREEN TDD, 116 total specs) |
 | 4 | AI Enrichment (Phase 4) | ✅ Done (AiTriageService + PiiScrubber + AiTriageJob — RED→GREEN TDD, 129 total specs) |
@@ -319,7 +311,7 @@
 | 6 | Changelog + Notifications (Phases 6-7) | Services built via TDD (Phase 3.5), approve endpoint done |
 | 7 | API + Frontend (Phases 8-9) | ✅ Done (13 API endpoints + full dashboard with 6 pages) |
 | 7.1 | Frontend — Ticket Detail + AI Review | ✅ Done (timeline, data comparison, changelog review, status actions) |
-| 7.2 | Frontend — Batch Review + Notifications | ✅ Done (batch approve/reject, notification history, filters) |
+| 7.2 | Frontend — Changelog Entries + Notifications | ✅ Done (changelog entries index, notification history + detail, filters) |
 | 7.3 | Frontend — Metrics Dashboard | ✅ Done (recharts, period filter, clickable charts, type inference) |
 | 7.4 | Observability (Phase 11 partial) | ✅ Done (structured logging, dead letter queue, force-fail, 259 specs) |
 | 8 | Diagrams + Edge Cases (Phases 10-11) | ✅ Done (README.md) |
@@ -335,16 +327,16 @@ In addition to the design document, a fully working prototype exists demonstrati
 - **3 normalizers** converting platform-specific formats to canonical Tickets
 - **Idempotent ingestion** — duplicate webhooks are safely ignored
 - **Cross-channel reporter resolution** — same person recognized across platforms
-- **AI triage pipeline** — OpenAI gpt-4o-mini for type/priority/summary with PII scrubbing
+- **AI triage pipeline** — OpenAI gpt-5.1 (default, user-selectable) for type/priority/summary with PII scrubbing
 - **Ticket type inference** — OpenAI in production, regex fallback with Spanish keyword support
 - **Notion two-way sync** — push on triage + poll every 2 min with rate limit handling
 - **WhatsApp 24h window** — session/template message logic
 - **Changelog generation & review** — AI draft → human approve/reject → notification dispatch
-- **Batch review** — mass-resolution spam prevention (>5 tickets → pending batch review)
-- **Simulator** — Sidekiq jobs generating realistic Spanish-language payloads every 10-30s
-- **Full dashboard** — 6 pages: ticket list, ticket detail, AI review, batch reviews, notifications, metrics
+- **Retry limits** — bounded retries on all jobs (notifications: 5 max, Notion: 3 max with polynomial backoff)
+- **Simulator** — Sidekiq jobs generating realistic Spanish-language payloads every ~3 minutes (~20/hour)
+- **Full dashboard** — 8 pages: ticket list, ticket detail, ticket groups, changelog entries, notifications, notification detail, metrics, dead letters
 - **Metrics dashboard** — recharts with clickable charts, period filtering, top reporters
 - **Observability** — StructuredLogger (JSON), JobLogging concern, ForceFailStore (Redis), dead letter queue + API + frontend
-- **259 backend specs + 45 frontend tests** — all passing
+- **313 backend specs + 42 frontend tests** — all passing
 
 See `PROTOTYPE.md` for full details.

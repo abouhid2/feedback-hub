@@ -6,10 +6,10 @@
 |-------|-------|
 | Backend | Ruby 3.3.6 · Rails 8.1 (API-only) · PostgreSQL 14 · Sidekiq 7 · Redis |
 | Frontend | Next.js 16 · React 19 · Tailwind 4 · Recharts |
-| AI | OpenAI gpt-4o-mini (triage + changelog generation) |
+| AI | OpenAI gpt-5.1 (default), selectable: gpt-5.1 · gpt-4.1 · gpt-4o-mini · o3-mini |
 | Integrations | Notion API · Slack API · Intercom API · WhatsApp Business API |
 
-**Test coverage:** 310 backend specs (RSpec) + 42 frontend tests (Jest/React Testing Library)
+**Test coverage:** 313 backend specs (RSpec) + 42 frontend tests (Jest/React Testing Library)
 
 ---
 
@@ -23,7 +23,7 @@
 6. [Notion Two-Way Sync](#6-notion-two-way-sync)
 7. [Changelog Generation & Resolution](#7-changelog-generation--resolution)
 8. [Notifications & Closing the Loop](#8-notifications--closing-the-loop)
-9. [Spam Prevention & Batch Review](#9-spam-prevention--batch-review)
+9. [Retry Limits & Rate Protection](#9-retry-limits--rate-protection)
 10. [Cross-Channel Ticket Grouping](#10-cross-channel-ticket-grouping)
 11. [Observability](#11-observability)
 12. [Security](#12-security)
@@ -61,7 +61,7 @@ bin/rails server -p 3000
 cd hub
 bundle exec sidekiq -C config/sidekiq.yml
 
-# 4. Simulator — generates realistic payloads every 10-30s (optional)
+# 4. Simulator — generates realistic payloads every ~3 min (optional)
 cd hub
 bin/rails simulator:start
 
@@ -112,7 +112,6 @@ graph TB
         CG[ChangelogGeneratorService]
         CR[ChangelogReviewService]
         ND[NotificationDispatchService]
-        BR[BatchReviewService]
         TG[TicketGroupService]
         DLQ[DeadLetterQueue]
     end
@@ -127,12 +126,12 @@ graph TB
     end
 
     subgraph External Services
-        OAI[OpenAI<br/>gpt-4o-mini]
+        OAI[OpenAI<br/>gpt-5.1]
         NOT[Notion API]
     end
 
     subgraph Frontend
-        NX[Next.js 16<br/>7 pages]
+        NX[Next.js 16<br/>8 pages]
     end
 
     SL --> WH
@@ -152,7 +151,6 @@ graph TB
     ND --> SL
     ND --> IC
     ND --> WA
-    BR --> ND
     SK --> DLQ
     NX --> |REST API| WH
 ```
@@ -228,7 +226,7 @@ erDiagram
         uuid ticket_id FK
         text content
         string status "draft | approved | rejected"
-        string ai_model "gpt-4o-mini"
+        string ai_model "gpt-5.1 (default)"
         integer ai_prompt_tokens
         integer ai_completion_tokens
         string approved_by
@@ -242,7 +240,7 @@ erDiagram
         string channel "slack | intercom | whatsapp | email | in_app"
         string recipient
         text content
-        string status "pending | sent | failed | pending_batch_review"
+        string status "pending | sent | failed | permanently_failed"
         integer retry_count "default 0"
         text last_error
         datetime delivered_at
@@ -389,7 +387,7 @@ The system guarantees exactly-once processing per webhook:
 When triggered (user-initiated via the dashboard), the triage pipeline:
 
 1. **PII Scrubbing** — `PiiScrubberService` strips emails and phone numbers via regex before any data reaches OpenAI
-2. **OpenAI Request** — Sends the scrubbed ticket text to `gpt-4o-mini` with a structured prompt requesting JSON: `{ suggested_type, suggested_priority, summary }`
+2. **OpenAI Request** — Sends the scrubbed ticket text to the configured model (default `gpt-5.1`) with a structured prompt requesting JSON: `{ suggested_type, suggested_priority, summary }`
 3. **Store Suggestions** — Saves AI output to `ai_suggested_type`, `ai_suggested_priority`, `ai_summary` fields
 4. **Human-in-the-Loop** — AI fields are stored separately from confirmed fields (`ticket_type`, `priority`, `title`). A support agent reviews and can accept, modify, or reject AI suggestions before they affect the ticket
 5. **Notion Sync** — On successful triage, `NotionSyncJob` is enqueued to push the ticket to Notion
@@ -481,7 +479,7 @@ A `NotionPollSchedulerJob` self-reschedules every 2 minutes:
 Both `NotionSyncService` and `NotionPollService` handle `429` responses:
 - Parse `Retry-After` header
 - Raise `RateLimitError` with `retry_after` value
-- Sidekiq retries the job after the specified delay
+- Jobs use `retry_on` with polynomial backoff (max 3 attempts) — see [Section 9](#9-retry-limits--rate-protection)
 
 ---
 
@@ -506,6 +504,26 @@ This mandatory human step is the primary defense against AI hallucinations reach
 - Scrubs PII before sending to OpenAI
 - Tracks token usage (`ai_prompt_tokens`, `ai_completion_tokens`) per entry
 - Records `changelog_drafted` event
+- **AI model selector** — Agents can choose between `gpt-5.1` (default), `gpt-4.1`, `gpt-4o-mini`, and `o3-mini` before generating
+
+### 7.4 Structured Changelog Format
+
+All changelogs (AI-generated and manual) follow a mandatory 3-section structure:
+
+```
+**What happened:**
+(Describe the problem in simple, non-technical terms — 1-2 sentences)
+
+**How we fixed it:**
+(Explain the resolution focusing on the outcome — 1-2 sentences)
+
+**Going forward:**
+(Brief reassurance and what to expect — 1 sentence)
+```
+
+- AI prompts enforce these exact section headers
+- Manual changelog forms pre-fill with the template
+- Both individual tickets and group resolutions use the same structure
 
 ### 7.3 ChangelogReviewService
 
@@ -527,9 +545,8 @@ After a changelog entry is approved, `NotificationDispatchJob` triggers `Notific
 
 1. **Validate** — Entry must be in `approved` status
 2. **Find recipient** — Look up the reporter's identity for the ticket's original channel
-3. **Batch check** — If ≥5 changelogs were approved in the last 5 minutes, route to `pending_batch_review` instead (see [Section 9](#9-spam-prevention--batch-review))
-4. **Deliver** — Send via the platform API (Slack, Intercom, WhatsApp, or mock for dev)
-5. **Record** — Create `notification_sent` or `notification_failed` event
+3. **Deliver** — Send via the platform API (Slack, Intercom, WhatsApp, or mock for dev)
+4. **Record** — Create `notification_sent` or `notification_failed` event
 
 ### 8.2 Platform Delivery
 
@@ -574,44 +591,51 @@ WhatsApp Business API restricts free-form messaging to a 24-hour window after th
 
 Failed notifications are retried via `NotificationRetryJob`:
 - Each failure increments `retry_count` and stores the error in `last_error`
-- After 3 failures, the notification remains in `failed` status and is surfaced in the dashboard for manual retry
-- Sidekiq handles the actual backoff timing
+- **Max 5 retries** — `NotificationRetryJob` enforces `MAX_RETRIES = 5`. After exceeding this limit, the notification is marked `permanently_failed` with a final event recorded
+- Notifications in `failed` status (under the retry limit) are automatically re-enqueued
+- `permanently_failed` notifications are surfaced in the dashboard for manual investigation
 
 ---
 
-## 9. Spam Prevention & Batch Review
+## 9. Retry Limits & Rate Protection
 
-### 9.1 The Problem
+### 9.1 Notification Retry Limits
 
-A single Notion task being marked "Done" could resolve many linked tickets. If each generates a changelog and gets approved in quick succession, the system would blast hundreds of Slack/WhatsApp messages in seconds.
+Failed notifications are retried by `NotificationRetryJob` with a hard cap:
 
-### 9.2 BatchReviewService
+| Mechanism | Limit | Outcome |
+|-----------|-------|---------|
+| `NotificationRetryJob` | `MAX_RETRIES = 5` | Exceeding → `permanently_failed` status + event logged |
+| Each retry attempt | Increments `retry_count`, stores `last_error` | Dashboard shows current retry state |
+| `permanently_failed` | Terminal state | Surfaced in dashboard for manual investigation |
 
-**Threshold:** If ≥5 changelog entries are approved within a 5-minute window, all resulting notifications enter `pending_batch_review` status instead of dispatching immediately.
+This prevents unbounded retry loops when a platform API is persistently down.
 
-```ruby
-BATCH_THRESHOLD = 5
-BATCH_WINDOW = 5.minutes
+### 9.2 Notion API Rate Limits
 
-def self.should_batch?(entries)
-  return false if entries.size <= BATCH_THRESHOLD
-  timestamps = entries.map(&:created_at)
-  time_span = timestamps.max - timestamps.min
-  time_span <= BATCH_WINDOW
-end
-```
+Both Notion jobs use ActiveJob `retry_on` with polynomial backoff:
 
-### 9.3 Review Workflow
+| Job | Error | Attempts | Backoff |
+|-----|-------|----------|---------|
+| `NotionSyncJob` | `RateLimitError` | 3 | Polynomial (increasing delay) |
+| `NotionSyncJob` | `ApiError` | 3 | 30 seconds fixed |
+| `NotionPollJob` | `RateLimitError` | 3 | Polynomial (increasing delay) |
 
-A support agent sees the pending batch in the dashboard and chooses:
+After exhausting retry attempts, the error propagates to Sidekiq's dead set and lands in the dead letter queue for manual inspection.
 
-| Action | Effect |
-|--------|--------|
-| **Approve All** | All pending notifications move to `pending` → dispatched |
-| **Approve Selected** | Only chosen notifications dispatch; rest remain held |
-| **Reject All** | All notifications marked `failed` with `batch_rejected` reason |
+### 9.3 OpenAI Rate Limits
 
-This prevents mass notification floods while keeping a human in control.
+- `429` responses trigger a cooldown stored in Redis cache (`openai:rate_limited`)
+- Cooldown duration respects the `Retry-After` header (minimum 60 seconds)
+- Requests during cooldown raise `AiApiError` immediately (no wasted API calls)
+
+### 9.4 Mass-Resolution Spam Prevention
+
+When multiple tickets are resolved simultaneously (e.g., a Notion task marked "Done" affecting many linked issues), the system prevents notification floods through **ticket grouping**:
+
+1. Support agents group related tickets via `TicketGroupService`
+2. Group resolution sends **one notification** on the primary ticket's channel (not one per ticket)
+3. The human-in-the-loop approval step on changelogs acts as a natural throttle — no notification dispatches without explicit human approval
 
 ---
 
@@ -804,56 +828,52 @@ sequenceDiagram
     ND->>DB: Create notification (status: sent)
 ```
 
-### 13.2 Batch Resolution Flow
+### 13.2 Ticket Group Resolution Flow
 
 ```mermaid
 sequenceDiagram
-    participant NP as NotionPollService
-    participant DB as PostgreSQL
     participant Agent as Support Agent
-    participant CG as ChangelogGeneratorService
-    participant CR as ChangelogReviewService
-    participant ND as NotificationDispatchService
-    participant BR as BatchReviewService
     participant Dash as Dashboard
+    participant TG as TicketGroupService
+    participant CG as ChangelogGeneratorService
+    participant DB as PostgreSQL
+    participant ND as NotificationDispatchService
+    participant Platform as Slack/Intercom/WhatsApp
 
-    NP->>DB: Detect 20 tickets resolved in Notion
+    Note over Agent,Dash: Agent notices duplicate bug reports across channels
 
-    Note over Agent: Agent generates & approves changelogs in quick succession
+    Agent->>Dash: Select tickets → "Group Selected"
+    Dash->>TG: create_group(name, ticket_ids, primary_ticket_id)
+    TG->>DB: Create TicketGroup + associate tickets
 
-    loop For each of 20 tickets
-        Agent->>CG: Generate changelog
-        Agent->>CR: Approve changelog entry
-        CR->>ND: NotificationDispatchJob
-    end
+    Note over Agent: Later, after all tickets are investigated...
 
-    ND->>BR: should_batch? (20 approved in < 5 min)
-    BR-->>ND: true (exceeds threshold of 5)
-    ND->>DB: Create notifications with status: pending_batch_review
+    Agent->>Dash: Click "Resolve Group"
+    Dash->>CG: generate_for_group(group) — AI drafts unified message
+    CG->>DB: Return combined resolution content
 
-    Dash->>Agent: Shows 20 pending notifications in batch review page
+    Agent->>Dash: Review content → "Resolve & Notify"
+    Dash->>TG: resolve_group(group, channel, content)
+    TG->>DB: Mark ALL tickets as resolved
+    TG->>DB: Create group_resolved events for each ticket
+    TG->>ND: Dispatch ONE notification on primary ticket's channel
 
-    alt Approve All
-        Agent->>BR: approve_all(notifications)
-        BR->>ND: Dispatch each notification (throttled)
-    else Approve Selected
-        Agent->>BR: approve_selected([ids])
-        BR->>ND: Dispatch only selected
-    else Reject All
-        Agent->>BR: reject_all(notifications)
-        BR->>DB: Mark all as failed (batch_rejected)
-    end
+    ND->>Platform: Send resolution message to original reporter
+    ND->>DB: Create notification (status: sent)
 ```
 
 ---
 
 ## 14. Edge Cases & Risk Analysis
 
-### 14.1 Spam & Batching (Challenge Section 10.1)
+### 14.1 Spam & Mass Resolution (Challenge Section 10.1)
 
 **Problem:** A mass-resolution event (e.g., sprint close resolving 50 tickets) could flood reporter channels with hundreds of notifications simultaneously.
 
-**Solution:** `BatchReviewService` detects when ≥5 changelog entries are approved within a 5-minute window. All resulting notifications enter `pending_batch_review` status instead of auto-dispatching. A support agent reviews the batch in the dashboard and can approve all, approve selected, or reject all. This prevents 500 Slack/WhatsApp messages from firing in 1 second.
+**Solution:** Three layers of protection:
+1. **Ticket grouping** — `TicketGroupService` groups duplicate/related tickets. Resolving a group sends **one notification** on the primary ticket's channel instead of one per ticket.
+2. **Human-in-the-loop** — No notification dispatches without explicit changelog approval. The agent controls the pace of approvals.
+3. **Retry limits** — `NotificationRetryJob` enforces `MAX_RETRIES = 5`. If a platform is overloaded, retries stop after 5 attempts and the notification is marked `permanently_failed` instead of retrying forever.
 
 ### 14.2 WhatsApp 24h Window (Challenge Section 10.2)
 
@@ -873,9 +893,9 @@ sequenceDiagram
 
 **Solution:**
 - **Idempotency** — Every webhook is idempotent via `UNIQUE(platform, external_id)` on `ticket_sources`. Replayed webhooks are safely ignored.
-- **Retry with backoff** — Notifications retry 3 times via `NotificationRetryJob`. Failed jobs are retried by Sidekiq with exponential backoff.
+- **Retry with limits** — Notifications retry up to 5 times via `NotificationRetryJob` (then `permanently_failed`). Notion jobs use `retry_on` with polynomial backoff (3 attempts). All jobs have bounded retry behavior.
 - **Dead letter queue** — Jobs that exhaust all retries land in the `dead_letter_jobs` table for manual inspection and retry from the dashboard.
-- **Graceful degradation** — If OpenAI is down, tickets are saved with `enrichment_status: pending` (no data loss, retry later). If Notion is down, sync jobs are retried via Sidekiq. If a notification platform is down, the notification stays in `failed` status with the error recorded.
+- **Graceful degradation** — If OpenAI is down, tickets are saved with `enrichment_status: pending` (no data loss, retry later). If Notion is down, sync jobs retry 3 times with backoff. If a notification platform is down, the notification retries up to 5 times before being marked `permanently_failed`.
 
 ### 14.5 PII & AI Privacy
 
@@ -935,16 +955,13 @@ sequenceDiagram
 | DELETE | `/api/ticket_groups/:id/remove_ticket` | Remove ticket from group (dissolves if < 2 remain) |
 | POST | `/api/ticket_groups/:id/resolve` | Resolve group and notify on primary ticket's channel |
 | POST | `/api/ticket_groups/:id/generate_content` | AI-generate resolution content for the group |
+| GET | `/api/ticket_groups/:id/preview_content` | Preview PII-scrubbed prompt for group content |
 
-### Batch Reviews
+### Changelog Entries
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/batch_reviews/pending` | List pending batch review notifications |
-| POST | `/api/batch_reviews/approve_all` | Approve all pending notifications |
-| POST | `/api/batch_reviews/approve_selected` | Approve selected notification IDs |
-| POST | `/api/batch_reviews/reject_all` | Reject all pending notifications |
-| POST | `/api/batch_reviews/simulate` | Simulate batch scenario (dev/testing) |
+| GET | `/api/changelog_entries` | List all changelog entries (filter: `status=draft\|approved\|rejected`) |
 
 ### Metrics
 
@@ -972,7 +989,7 @@ sequenceDiagram
 
 ## 16. Frontend Pages
 
-The Next.js 16 dashboard at `localhost:3001` provides 7 pages:
+The Next.js 16 dashboard at `localhost:3001` provides 8 pages:
 
 ### 16.1 Ticket Dashboard (`/`)
 
@@ -1006,19 +1023,31 @@ Cross-channel duplicate management:
 - **Resolve flow** — Click "Resolve" → modal with AI-generated or manual resolution content → sends one notification on the primary ticket's channel
 - **Auto-refresh** — 10-second polling
 
-### 16.4 Batch Reviews (`/batch-reviews`)
+### 16.4 Changelog Entries (`/changelog-entries`)
 
-For managing mass-resolution notification batches:
-- **Pending notifications** grouped by changelog entry
-- **Approve All** / **Approve Selected** / **Reject All** buttons
-- **Confirmation dialogs** before destructive actions
-- **Simulate batch** button for testing
+All changelog entries across tickets in one view:
+- **Status filter** — All / Draft / Approved / Rejected
+- **Auto-refresh** — 10-second polling
+- **Table columns** — Status badge, content (truncated), ticket title (link to `/tickets/:id`), AI model, approved by, created date
+- **Related tickets** — When a ticket belongs to a group, sibling tickets are shown as sub-links
+- **Token tracking** — `ai_prompt_tokens` and `ai_completion_tokens` visible per entry
 
 ### 16.5 Notifications (`/notifications`)
 
 Notification delivery history:
-- **Filters** — Status (pending/sent/failed/pending_batch_review), channel
+- **Filters** — Status (pending/sent/failed/permanently_failed), channel
 - **Delivery details** — Recipient, content, timestamps, retry count, last error
+- **View links** — Each row has a "View" link to the notification detail page
+
+### 16.5.1 Notification Detail (`/notifications/[id]`)
+
+Deep view of a single notification:
+- **Status + channel badges** — Color-coded status and channel indicators
+- **Delivery details** — Recipient, content, timestamps
+- **Error card** — If failed: `last_error` and `retry_count` displayed prominently
+- **Linked ticket** — Title (link to `/tickets/:id`), status, priority, reporter
+- **Linked changelog entry** — Content, status, AI model, approved by
+- **Related tickets** — When the ticket belongs to a group, sibling tickets are listed with links
 
 ### 16.6 Metrics (`/metrics`)
 
@@ -1042,16 +1071,16 @@ Dead letter queue viewer:
 
 ## 17. Testing
 
-### 17.1 Backend: 310 RSpec Specs
+### 17.1 Backend: 313 RSpec Specs
 
 All specs follow strict RED → GREEN TDD discipline:
 
 | Category | Count | Scope |
 |----------|-------|-------|
 | Model specs | 49 | Validations, associations, scopes, enums |
-| Service specs | 144 | IngestionService, AiTriageService, PiiScrubberService, ChangelogGeneratorService, ChangelogReviewService, NotificationDispatchService, BatchReviewService, NotionSyncService, NotionPollService, WhatsappDeliveryService, WebhookVerifierService, TicketGroupService, StructuredLogger |
-| Job specs | 28 | All 9 jobs (including dead letter handler, force-fail) |
-| Request specs | 70 | All API endpoints (webhooks + REST + ticket groups) |
+| Service specs | 144 | IngestionService, AiTriageService, PiiScrubberService, ChangelogGeneratorService, ChangelogReviewService, NotificationDispatchService, NotionSyncService, NotionPollService, WhatsappDeliveryService, WebhookVerifierService, TicketGroupService, StructuredLogger |
+| Job specs | 31 | All 9 jobs — including retry limit enforcement, `retry_on` rate limit handling, dead letter handler, force-fail |
+| Request specs | 70 | All API endpoints (webhooks + REST + ticket groups + changelog entries) |
 | Constants | 23 | TicketTypePatterns (regex classification) |
 
 **Stack:** RSpec 7, FactoryBot 6.4, Shoulda Matchers 6, WebMock 3.23
@@ -1067,7 +1096,7 @@ All specs follow strict RED → GREEN TDD discipline:
 
 **Stack:** Jest, React Testing Library
 
-Covers component rendering, user interactions, API integration, and error states across all 6 pages.
+Covers component rendering, user interactions, API integration, and error states across all 8 pages.
 
 ---
 
@@ -1093,7 +1122,7 @@ Covers component rendering, user interactions, API integration, and error states
 ### 18.3 User-Initiated AI (Not Auto-Trigger)
 
 **Chose explicit trigger** because:
-- The simulator generates tickets every 10-30 seconds — auto-triage would burn OpenAI quota immediately
+- The simulator generates tickets every ~3 minutes — auto-triage would burn OpenAI quota
 - Human-initiated triage gives the agent control over when to spend AI credits
 - Changelog generation is deliberately separate from resolution detection — the "Release Valve" ensures no auto-notification
 - In production, this could be switched to auto-trigger with rate limiting, but the explicit model is safer for a prototype
