@@ -16,6 +16,14 @@ RSpec.describe PiiScrubberService, type: :service do
       expect(result[:scrubbed]).not_to include("5551234567")
     end
 
+    it "redacts international phone numbers with spaces" do
+      text = "Contact at +56 9 8765 4321 for support"
+      result = described_class.scrub(text)
+      expect(result[:scrubbed]).not_to include("+56 9 8765 4321")
+      expect(result[:scrubbed]).to include("[PHONE]")
+      expect(result[:redactions].any? { |r| r[:type] == :phone }).to be true
+    end
+
     it "preserves text meaning after redaction" do
       text = "User john@test.com reported a login bug from IP 192.168.1.1"
       result = described_class.scrub(text)
