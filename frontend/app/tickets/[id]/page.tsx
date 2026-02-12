@@ -65,7 +65,7 @@ export default function TicketDetailPage() {
     <div className="min-h-screen">
       <header className="header-sticky">
         <div className="max-w-5xl mx-auto px-4 py-4">
-          <Link href="/" className="text-sm text-white/80 hover:text-white hover:underline">
+          <Link href="/" className="text-sm text-text-secondary hover:text-text hover:underline">
             Back to tickets
           </Link>
         </div>

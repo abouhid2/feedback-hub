@@ -2,25 +2,73 @@
 @import "./components.css";
 
 :root {
-  --background: azure;
-  --foreground: #171717;
+  /* Surface */
+  --color-surface: #f8fafc;
+  --color-surface-card: #ffffff;
+  --color-surface-inset: #f1f5f9;
+
+  /* Borders */
+  --color-border: #e2e8f0;
+  --color-border-subtle: #f1f5f9;
+
+  /* Text */
+  --color-text: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+
+  /* Sidebar */
+  --color-sidebar: #1e293b;
+  --color-sidebar-text: #f1f5f9;
+  --color-sidebar-muted: #94a3b8;
+  --color-sidebar-active: rgba(255, 255, 255, 0.1);
+  --color-sidebar-hover: rgba(255, 255, 255, 0.06);
+
+  /* Semantic */
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Brand */
   --color-brand: rgb(9, 97, 252);
   --color-brand-light: rgb(9 97 252 / 8%);
   --color-brand-medium: rgb(9 97 252 / 15%);
   --color-brand-dark: rgb(7, 78, 202);
+
+  /* Surface */
+  --color-surface: var(--color-surface);
+  --color-surface-card: var(--color-surface-card);
+  --color-surface-inset: var(--color-surface-inset);
+
+  /* Borders */
+  --color-border: var(--color-border);
+  --color-border-subtle: var(--color-border-subtle);
+
+  /* Text */
+  --color-text: var(--color-text);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+
+  /* Sidebar */
+  --color-sidebar: var(--color-sidebar);
+  --color-sidebar-text: var(--color-sidebar-text);
+  --color-sidebar-muted: var(--color-sidebar-muted);
+  --color-sidebar-active: var(--color-sidebar-active);
+  --color-sidebar-hover: var(--color-sidebar-hover);
+
+  /* Semantic */
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 @keyframes fade-in {
