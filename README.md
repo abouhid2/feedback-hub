@@ -9,7 +9,7 @@
 | AI | OpenAI gpt-4o-mini (triage + changelog generation) |
 | Integrations | Notion API · Slack API · Intercom API · WhatsApp Business API |
 
-**Test coverage:** 259 backend specs (RSpec) + 45 frontend tests (Jest/React Testing Library)
+**Test coverage:** 310 backend specs (RSpec) + 42 frontend tests (Jest/React Testing Library)
 
 ---
 
@@ -24,14 +24,15 @@
 7. [Changelog Generation & Resolution](#7-changelog-generation--resolution)
 8. [Notifications & Closing the Loop](#8-notifications--closing-the-loop)
 9. [Spam Prevention & Batch Review](#9-spam-prevention--batch-review)
-10. [Observability](#10-observability)
-11. [Security](#11-security)
-12. [Sequence Diagrams](#12-sequence-diagrams)
-13. [Edge Cases & Risk Analysis](#13-edge-cases--risk-analysis)
-14. [API Reference](#14-api-reference)
-15. [Frontend Pages](#15-frontend-pages)
-16. [Testing](#16-testing)
-17. [Trade-offs & Alternatives](#17-trade-offs--alternatives)
+10. [Cross-Channel Ticket Grouping](#10-cross-channel-ticket-grouping)
+11. [Observability](#11-observability)
+12. [Security](#12-security)
+13. [Sequence Diagrams](#13-sequence-diagrams)
+14. [Edge Cases & Risk Analysis](#14-edge-cases--risk-analysis)
+15. [API Reference](#15-api-reference)
+16. [Frontend Pages](#16-frontend-pages)
+17. [Testing](#17-testing)
+18. [Trade-offs & Alternatives](#18-trade-offs--alternatives)
 
 ---
 
@@ -112,6 +113,7 @@ graph TB
         CR[ChangelogReviewService]
         ND[NotificationDispatchService]
         BR[BatchReviewService]
+        TG[TicketGroupService]
         DLQ[DeadLetterQueue]
     end
 
@@ -120,7 +122,7 @@ graph TB
     end
 
     subgraph Data
-        PG[(PostgreSQL 14<br/>9 tables · UUID PKs)]
+        PG[(PostgreSQL 14<br/>10 tables · UUID PKs)]
         RD[(Redis<br/>Queues + Cache)]
     end
 
@@ -130,7 +132,7 @@ graph TB
     end
 
     subgraph Frontend
-        NX[Next.js 16<br/>6 pages]
+        NX[Next.js 16<br/>7 pages]
     end
 
     SL --> WH
@@ -187,6 +189,7 @@ erDiagram
     tickets {
         uuid id PK
         uuid reporter_id FK
+        uuid ticket_group_id FK "nullable — cross-channel grouping"
         string title
         text description
         string ticket_type "bug | feature_request | question | incident"
@@ -255,6 +258,16 @@ erDiagram
         string source_platform
     }
 
+    ticket_groups {
+        uuid id PK
+        string name
+        string status "open | resolved"
+        uuid primary_ticket_id FK "Main ticket for notifications"
+        string resolved_via_channel
+        datetime resolved_at
+        text resolution_note
+    }
+
     dead_letter_jobs {
         uuid id PK
         string job_class
@@ -269,6 +282,8 @@ erDiagram
 
     reporters ||--o{ reporter_identities : "has many"
     reporters ||--o{ tickets : "has many"
+    ticket_groups ||--o{ tickets : "has many"
+    ticket_groups ||--o| tickets : "primary_ticket"
     tickets ||--o{ ticket_sources : "has many"
     tickets ||--o{ ticket_events : "has many"
     tickets ||--o{ changelog_entries : "has many"
@@ -295,7 +310,8 @@ erDiagram
 
 ```
 tickets         → status, priority, original_channel, ticket_type, enrichment_status,
-                  created_at, reporter_id, notion_page_id (unique partial)
+                  created_at, reporter_id, ticket_group_id, notion_page_id (unique partial)
+ticket_groups   → status, primary_ticket_id
 ticket_sources  → (platform, external_id) unique composite
 ticket_events   → ticket_id, event_type, created_at
 changelog_entries → ticket_id, status
@@ -380,14 +396,31 @@ When triggered (user-initiated via the dashboard), the triage pipeline:
 
 ### 5.2 PiiScrubberService
 
-```ruby
-EMAIL_REGEX = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/
-PHONE_REGEX = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/
-```
+Detects and redacts 4 categories of sensitive data before any OpenAI API call:
 
-- Replaces emails with `[EMAIL]` and phone numbers with `[PHONE]`
-- Returns both the scrubbed text and a redaction log
-- Applied before every OpenAI API call (triage and changelog generation)
+| Type | Pattern | Replacement |
+|------|---------|-------------|
+| Email | `user@domain.com` | `[EMAIL]` |
+| Phone | `+56 9 8765 4321`, `555-123-4567` | `[PHONE]` |
+| Password | `password: secret`, `pwd=hunter2` | `[PASSWORD]` |
+| SSN | `123-45-6789`, `123 45 6789` | `[SSN]` |
+
+- Returns both the scrubbed text and a redaction log (type + original value)
+- Applied in `AiTriageService`, `ChangelogGeneratorService`, and `TicketTypeInferenceService`
+- Original data is preserved in the database; only the AI sees scrubbed versions
+
+### 5.3 AI Prompt Preview
+
+Before generating a changelog, the agent can preview what will be sent to OpenAI:
+
+1. Click **"Generate with AI"** on a resolved ticket
+2. The system fetches `GET /api/tickets/:id/preview_changelog` — returns the original text, scrubbed text, and a list of redactions
+3. The agent sees an **AI Prompt Preview** panel:
+   - Amber box listing each redacted item with the original value (e.g., `[EMAIL]` ~~maria.garcia@company.com~~)
+   - The exact scrubbed text that will be sent to OpenAI
+4. Click **"Confirm & Generate"** to proceed, or **"Cancel"** to back out
+
+This gives full transparency into what data reaches external AI services.
 
 ### 5.3 Rate Limit Handling
 
@@ -582,9 +615,50 @@ This prevents mass notification floods while keeping a human in control.
 
 ---
 
-## 10. Observability
+## 10. Cross-Channel Ticket Grouping
 
-### 10.1 StructuredLogger
+### 10.1 The Problem
+
+The same bug is often reported through multiple channels — a user complains on Slack, another opens an Intercom chat, a third sends a WhatsApp message. Without grouping, each becomes a separate ticket with a separate Notion page, separate changelog, and separate notification. Resolution is fragmented.
+
+### 10.2 TicketGroupService
+
+`TicketGroupService` manages the lifecycle of ticket groups:
+
+| Action | Method | Rules |
+|--------|--------|-------|
+| **Create group** | `create_group(name:, ticket_ids:, primary_ticket_id:)` | Minimum 2 tickets. Primary must be in the group. Tickets can't already belong to another group. |
+| **Add tickets** | `add_tickets(group, ticket_ids)` | Same uniqueness guard — no ticket in two groups. |
+| **Remove ticket** | `remove_ticket(group, ticket_id)` | If fewer than 2 remain, the group dissolves automatically. If the primary ticket is removed, a new primary is assigned. |
+| **Resolve group** | `resolve_group(group:, channel:, resolution_note:, content:)` | Resolves all tickets, sends one notification on the primary ticket's channel, creates `group_resolved` events. |
+
+### 10.3 Group Resolution Flow
+
+When a group is resolved:
+
+1. All tickets in the group are marked `resolved`
+2. Approved changelog entries from all tickets are aggregated into one notification
+3. The notification is sent only on the **primary ticket's** channel (avoids duplicate messages)
+4. `group_resolved` events are created for every ticket in the group
+5. The group status is set to `resolved` with a timestamp and resolution note
+
+### 10.4 Dashboard Integration
+
+- **Ticket Dashboard (`/`)** — Multi-select tickets with checkboxes → floating "Group Selected" bar → modal to name the group and pick a primary ticket
+- **Ticket Groups Page (`/ticket-groups`)** — Lists all groups with status filter (open/resolved), expandable ticket cards, resolve button with content generation
+- **Ticket Detail (`/tickets/[id]`)** — Shows group membership, "Add to Group" picker, "Remove from group" button
+
+### 10.5 AI Content for Groups
+
+When resolving a group, the agent can:
+- **Generate with AI** — `ChangelogGeneratorService.generate_for_group(group)` sends all ticket titles/descriptions to OpenAI in one prompt, producing a unified resolution message
+- **Write manually** — Skip AI entirely and type the resolution content
+
+---
+
+## 11. Observability
+
+### 11.1 StructuredLogger
 
 JSON-structured logging with context propagation:
 
@@ -604,7 +678,7 @@ JSON-structured logging with context propagation:
 - **`measure`** — Times a block and logs duration; automatically logs errors with timing on exception
 - **Singleton** — `StructuredLogger.instance` provides a shared instance
 
-### 10.2 JobLogging Concern
+### 11.2 JobLogging Concern
 
 Included in `ApplicationJob` — every Sidekiq job automatically gets:
 
@@ -613,7 +687,7 @@ Included in `ApplicationJob` — every Sidekiq job automatically gets:
 - **Error log** — Error class, message, duration
 - **Force-fail check** — Reads from `ForceFailStore` (Redis) to intentionally fail jobs for DLQ testing
 
-### 10.3 Dead Letter Queue
+### 11.3 Dead Letter Queue
 
 When a Sidekiq job exhausts all retries:
 
@@ -622,7 +696,7 @@ When a Sidekiq job exhausts all retries:
 3. **Dashboard** → `/dead-letters` page shows unresolved failures
 4. **Actions** — Resolve (acknowledge), Retry (re-enqueue the original job)
 
-### 10.4 ForceFailStore
+### 11.4 ForceFailStore
 
 Redis-backed toggle for testing the dead letter queue in development:
 
@@ -632,9 +706,9 @@ Redis-backed toggle for testing the dead letter queue in development:
 
 ---
 
-## 11. Security
+## 12. Security
 
-### 11.1 HMAC Webhook Verification
+### 12.1 HMAC Webhook Verification
 
 All three webhook endpoints verify payload authenticity using `WebhookVerifierService`:
 
@@ -646,22 +720,23 @@ All three webhook endpoints verify payload authenticity using `WebhookVerifierSe
 
 All comparisons use `ActiveSupport::SecurityUtils.secure_compare` (timing-safe) to prevent timing attacks.
 
-### 11.2 PII Scrubbing
+### 12.2 PII Scrubbing
 
-- Emails and phone numbers are stripped before any OpenAI API call
-- Patterns: standard email regex + international phone number regex
-- Applied in both `AiTriageService` and `ChangelogGeneratorService`
+- 4 PII types detected: emails, phone numbers, passwords, and SSNs
+- All are stripped before any OpenAI API call via `PiiScrubberService`
+- Applied in `AiTriageService`, `ChangelogGeneratorService`, and `TicketTypeInferenceService`
 - Original data is preserved in the database; only the AI sees scrubbed versions
+- A **preview endpoint** (`GET /api/tickets/:id/preview_changelog`) lets agents inspect the scrubbed prompt before generation
 
-### 11.3 CORS
+### 12.3 CORS
 
 Configured for `localhost:3001` only (the Next.js dashboard).
 
 ---
 
-## 12. Sequence Diagrams
+## 13. Sequence Diagrams
 
-### 12.1 Main Flow: WhatsApp Report → Resolution → Notification
+### 13.1 Main Flow: WhatsApp Report → Resolution → Notification
 
 ```mermaid
 sequenceDiagram
@@ -729,7 +804,7 @@ sequenceDiagram
     ND->>DB: Create notification (status: sent)
 ```
 
-### 12.2 Batch Resolution Flow
+### 13.2 Batch Resolution Flow
 
 ```mermaid
 sequenceDiagram
@@ -772,27 +847,27 @@ sequenceDiagram
 
 ---
 
-## 13. Edge Cases & Risk Analysis
+## 14. Edge Cases & Risk Analysis
 
-### 13.1 Spam & Batching (Challenge Section 10.1)
+### 14.1 Spam & Batching (Challenge Section 10.1)
 
 **Problem:** A mass-resolution event (e.g., sprint close resolving 50 tickets) could flood reporter channels with hundreds of notifications simultaneously.
 
 **Solution:** `BatchReviewService` detects when ≥5 changelog entries are approved within a 5-minute window. All resulting notifications enter `pending_batch_review` status instead of auto-dispatching. A support agent reviews the batch in the dashboard and can approve all, approve selected, or reject all. This prevents 500 Slack/WhatsApp messages from firing in 1 second.
 
-### 13.2 WhatsApp 24h Window (Challenge Section 10.2)
+### 14.2 WhatsApp 24h Window (Challenge Section 10.2)
 
 **Problem:** WhatsApp Business API only allows free-form messages within 24 hours of the user's last message. Notifications sent after this window require pre-approved templates.
 
 **Solution:** `WhatsappDeliveryService` checks `reporter_identity.last_message_at`. If < 24h ago → session message (free-form text). If > 24h → pre-approved template message (`issue_resolved`). If no template is available or the call fails → `channel_restricted` status, surfaced in the dashboard for manual follow-up via another channel.
 
-### 13.3 AI Hallucinations (Challenge Section 10.3)
+### 14.3 AI Hallucinations (Challenge Section 10.3)
 
 **Problem:** AI-generated text could contain incorrect, misleading, or inappropriate content that reaches customers.
 
 **Solution:** No AI-generated text ever reaches a customer without human approval. The `ChangelogReviewService` enforces: draft → human reviews/edits → approve → only then do notifications dispatch. Rejection creates a `changelog_rejected` event with reason. The agent can edit the draft text before approving, or reject and regenerate entirely. This is the "Release Valve" — AI accelerates drafting, but a human always holds the send button.
 
-### 13.4 Consistency & External Dependency Failures (Challenge Section 10.4)
+### 14.4 Consistency & External Dependency Failures (Challenge Section 10.4)
 
 **Problem:** External services (Notion, OpenAI, Slack, WhatsApp) can be temporarily unavailable. The system must not lose data.
 
@@ -802,15 +877,15 @@ sequenceDiagram
 - **Dead letter queue** — Jobs that exhaust all retries land in the `dead_letter_jobs` table for manual inspection and retry from the dashboard.
 - **Graceful degradation** — If OpenAI is down, tickets are saved with `enrichment_status: pending` (no data loss, retry later). If Notion is down, sync jobs are retried via Sidekiq. If a notification platform is down, the notification stays in `failed` status with the error recorded.
 
-### 13.5 PII & AI Privacy
+### 14.5 PII & AI Privacy
 
-**Problem:** Support tickets contain personal information (emails, phone numbers) that should not be sent to external AI providers.
+**Problem:** Support tickets contain personal information (emails, phone numbers, passwords, SSNs) that should not be sent to external AI providers.
 
-**Solution:** `PiiScrubberService` strips all emails and phone numbers via regex before any OpenAI API call. Original data is preserved in the Hub database; OpenAI only sees `[EMAIL]` and `[PHONE]` placeholders. This is applied in both the triage and changelog generation pipelines.
+**Solution:** `PiiScrubberService` strips all 4 PII types via regex before any OpenAI API call. Original data is preserved in the Hub database; OpenAI only sees `[EMAIL]`, `[PHONE]`, `[PASSWORD]`, and `[SSN]` placeholders. This is applied in triage, changelog generation, and ticket type inference. Additionally, a preview endpoint lets agents inspect the exact scrubbed text before triggering AI generation.
 
 ---
 
-## 14. API Reference
+## 15. API Reference
 
 ### Webhooks (External Intake)
 
@@ -836,6 +911,7 @@ sequenceDiagram
 |--------|----------|-------------|
 | GET | `/api/tickets/:id/changelog` | View current changelog entry |
 | POST | `/api/tickets/:id/generate_changelog` | Generate AI changelog draft |
+| GET | `/api/tickets/:id/preview_changelog` | Preview scrubbed AI prompt before generation |
 | POST | `/api/tickets/:id/manual_changelog` | Create manual changelog (no AI) |
 | PATCH | `/api/tickets/:id/approve_changelog` | Approve draft → dispatch notifications |
 | PATCH | `/api/tickets/:id/reject_changelog` | Reject draft with reason |
@@ -847,6 +923,18 @@ sequenceDiagram
 |--------|----------|-------------|
 | GET | `/api/notifications` | List notifications (filters: status, channel) |
 | GET | `/api/notifications/:id` | Notification detail with retry history |
+
+### Ticket Groups
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/ticket_groups` | List groups (filter: `status=open\|resolved`) |
+| GET | `/api/ticket_groups/:id` | Group detail with tickets |
+| POST | `/api/ticket_groups` | Create group (`name`, `ticket_ids`, `primary_ticket_id`) |
+| POST | `/api/ticket_groups/:id/add_tickets` | Add tickets to group |
+| DELETE | `/api/ticket_groups/:id/remove_ticket` | Remove ticket from group (dissolves if < 2 remain) |
+| POST | `/api/ticket_groups/:id/resolve` | Resolve group and notify on primary ticket's channel |
+| POST | `/api/ticket_groups/:id/generate_content` | AI-generate resolution content for the group |
 
 ### Batch Reviews
 
@@ -882,11 +970,11 @@ sequenceDiagram
 
 ---
 
-## 15. Frontend Pages
+## 16. Frontend Pages
 
-The Next.js 16 dashboard at `localhost:3001` provides 6 pages:
+The Next.js 16 dashboard at `localhost:3001` provides 7 pages:
 
-### 15.1 Ticket Dashboard (`/`)
+### 16.1 Ticket Dashboard (`/`)
 
 The main landing page showing all tickets in a filterable table:
 - **Filters** — Channel (Slack/Intercom/WhatsApp), status, priority, ticket type
@@ -895,8 +983,10 @@ The main landing page showing all tickets in a filterable table:
 - **Priority color-coding** — P0 (red) → P5 (gray)
 - **Pagination** — Server-side with page navigation
 - **Clickable rows** → Navigate to ticket detail
+- **Multi-select + grouping** — Checkbox selection → floating "Group Selected" bar → create group modal
+- **Simulate buttons** — Generate test tickets via Slack/Intercom/WhatsApp with optional **PII checkbox** (injects emails, phones, SSNs, passwords for testing scrubbing)
 
-### 15.2 Ticket Detail (`/tickets/[id]`)
+### 16.2 Ticket Detail (`/tickets/[id]`)
 
 Deep view of a single ticket:
 - **Data comparison** — Original (raw) vs normalized data side by side
@@ -904,10 +994,19 @@ Deep view of a single ticket:
 - **Timeline** — Chronological event log (created → triaged → synced → resolved → notified)
 - **Sources list** — All linked ticket sources with platform badges
 - **Status actions** — Buttons to change ticket status
-- **Changelog review** — Generate, edit, approve/reject changelog drafts (the "Release Valve" UI)
+- **Ticket group** — Shows group membership with link, or "Add to Group" picker
+- **Changelog review** — Generate, edit, approve/reject changelog drafts with **AI prompt preview** (shows scrubbed text + redactions before sending to OpenAI)
 - **Simulate buttons** — Testing tools for status changes
 
-### 15.3 Batch Reviews (`/batch-reviews`)
+### 16.3 Ticket Groups (`/ticket-groups`)
+
+Cross-channel duplicate management:
+- **Group cards** — Each group shows name, status, ticket count, and expandable ticket list
+- **Status filter** — Toggle between All / Open / Resolved groups
+- **Resolve flow** — Click "Resolve" → modal with AI-generated or manual resolution content → sends one notification on the primary ticket's channel
+- **Auto-refresh** — 10-second polling
+
+### 16.4 Batch Reviews (`/batch-reviews`)
 
 For managing mass-resolution notification batches:
 - **Pending notifications** grouped by changelog entry
@@ -915,13 +1014,13 @@ For managing mass-resolution notification batches:
 - **Confirmation dialogs** before destructive actions
 - **Simulate batch** button for testing
 
-### 15.4 Notifications (`/notifications`)
+### 16.5 Notifications (`/notifications`)
 
 Notification delivery history:
 - **Filters** — Status (pending/sent/failed/pending_batch_review), channel
 - **Delivery details** — Recipient, content, timestamps, retry count, last error
 
-### 15.5 Metrics (`/metrics`)
+### 16.6 Metrics (`/metrics`)
 
 Analytics dashboard with recharts visualizations:
 - **Pie chart** — Tickets by channel
@@ -932,7 +1031,7 @@ Analytics dashboard with recharts visualizations:
 - **Clickable charts** → Navigate to filtered ticket dashboard
 - **30-second auto-refresh**
 
-### 15.6 Dead Letters (`/dead-letters`)
+### 16.7 Dead Letters (`/dead-letters`)
 
 Dead letter queue viewer:
 - **Failed job list** — Job class, error, queue, timestamp
@@ -941,19 +1040,19 @@ Dead letter queue viewer:
 
 ---
 
-## 16. Testing
+## 17. Testing
 
-### 16.1 Backend: 259 RSpec Specs
+### 17.1 Backend: 310 RSpec Specs
 
 All specs follow strict RED → GREEN TDD discipline:
 
 | Category | Count | Scope |
 |----------|-------|-------|
-| Model specs | ~63 | Validations, associations, scopes, enums |
-| Service specs | ~70 | IngestionService, AiTriageService, PiiScrubberService, ChangelogGeneratorService, ChangelogReviewService, NotificationDispatchService, BatchReviewService, NotionSyncService, NotionPollService, WhatsappDeliveryService, WebhookVerifierService, StructuredLogger |
-| Job specs | ~30 | All 9 jobs (including dead letter handler, force-fail) |
-| Request specs | ~50 | All API endpoints (webhooks + REST) |
-| Controller specs | ~46 | Dead letter jobs, metrics, batch reviews |
+| Model specs | 49 | Validations, associations, scopes, enums |
+| Service specs | 144 | IngestionService, AiTriageService, PiiScrubberService, ChangelogGeneratorService, ChangelogReviewService, NotificationDispatchService, BatchReviewService, NotionSyncService, NotionPollService, WhatsappDeliveryService, WebhookVerifierService, TicketGroupService, StructuredLogger |
+| Job specs | 28 | All 9 jobs (including dead letter handler, force-fail) |
+| Request specs | 70 | All API endpoints (webhooks + REST + ticket groups) |
+| Constants | 23 | TicketTypePatterns (regex classification) |
 
 **Stack:** RSpec 7, FactoryBot 6.4, Shoulda Matchers 6, WebMock 3.23
 
@@ -964,7 +1063,7 @@ All specs follow strict RED → GREEN TDD discipline:
 - Test cache is `NullStore`; specs that test caching stub `Rails.cache` with `MemoryStore`
 - 8 factories covering all domain models
 
-### 16.2 Frontend: 45 Tests
+### 17.2 Frontend: 42 Tests
 
 **Stack:** Jest, React Testing Library
 
@@ -972,9 +1071,9 @@ Covers component rendering, user interactions, API integration, and error states
 
 ---
 
-## 17. Trade-offs & Alternatives
+## 18. Trade-offs & Alternatives
 
-### 17.1 Sidekiq over Kafka
+### 18.1 Sidekiq over Kafka
 
 **Chose Sidekiq** because:
 - The system has ~10 job types with modest throughput (support tickets, not real-time events)
@@ -982,7 +1081,7 @@ Covers component rendering, user interactions, API integration, and error states
 - Redis was already required for caching
 - Kafka would add operational complexity (ZooKeeper, partitions, consumer groups) for no benefit at this scale
 
-### 17.2 Polling over Webhooks for Notion
+### 18.2 Polling over Webhooks for Notion
 
 **Chose polling** because:
 - Notion lacks granular page-level webhook events
@@ -991,7 +1090,7 @@ Covers component rendering, user interactions, API integration, and error states
 - No public endpoint exposure or webhook registration required
 - Simpler error handling (just retry the poll) vs managing incoming webhook failures
 
-### 17.3 User-Initiated AI (Not Auto-Trigger)
+### 18.3 User-Initiated AI (Not Auto-Trigger)
 
 **Chose explicit trigger** because:
 - The simulator generates tickets every 10-30 seconds — auto-triage would burn OpenAI quota immediately
@@ -999,7 +1098,7 @@ Covers component rendering, user interactions, API integration, and error states
 - Changelog generation is deliberately separate from resolution detection — the "Release Valve" ensures no auto-notification
 - In production, this could be switched to auto-trigger with rate limiting, but the explicit model is safer for a prototype
 
-### 17.4 Separate AI Fields vs Overwriting
+### 18.4 Separate AI Fields vs Overwriting
 
 **Chose `ai_suggested_*` fields** alongside confirmed fields because:
 - Support agents can compare AI suggestions with their own judgment
@@ -1007,7 +1106,7 @@ Covers component rendering, user interactions, API integration, and error states
 - Audit trail is clear: what did the AI suggest vs what the human confirmed
 - Enables future analysis of AI accuracy (compare suggested vs confirmed)
 
-### 17.5 Append-Only Events vs Mutable Status History
+### 18.5 Append-Only Events vs Mutable Status History
 
 **Chose `ticket_events` as append-only log** because:
 - Every state change is preserved forever (no history loss from updates)

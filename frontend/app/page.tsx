@@ -40,10 +40,12 @@ export default function Dashboard() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [simulating, setSimulating] = useState<string | null>(null);
+  const [includePii, setIncludePii] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
   const [paused, setPaused] = useState(false);
+  const [search, setSearch] = useState("");
 
   // Auto-pause when selecting tickets
   const effectivePaused = paused || selectedIds.size > 0;
@@ -51,7 +53,7 @@ export default function Dashboard() {
   const handleSimulateTicket = async (channel: "slack" | "intercom" | "whatsapp") => {
     setSimulating(channel);
     try {
-      await simulateTicket(channel);
+      await simulateTicket(channel, { includePii });
     } catch {
       // silent — dashboard will pick up via auto-refresh
     } finally {
@@ -62,7 +64,7 @@ export default function Dashboard() {
   const refreshData = useCallback(async () => {
     try {
       const [ticketData, metricsData] = await Promise.all([
-        apiFetchTickets({ ...filters, page, per_page: 20 }),
+        apiFetchTickets({ ...filters, search, page, per_page: 20 }),
         fetchMetrics(),
       ]);
       setTickets(ticketData.tickets);
@@ -81,11 +83,16 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [filters, page]);
+  }, [filters, page, search]);
 
+  // Always fetch when filters, page, or search change
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
+
+  // Auto-refresh polling — only when not paused
   useEffect(() => {
     if (!effectivePaused) {
-      refreshData();
       const interval = setInterval(refreshData, 5000);
       return () => clearInterval(interval);
     }
@@ -93,6 +100,11 @@ export default function Dashboard() {
 
   const handleFilterChange = (key: keyof Filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
     setPage(1);
   };
 
@@ -142,6 +154,15 @@ export default function Dashboard() {
               {simulating === ch.key ? "..." : ch.label}
             </button>
           ))}
+          <label className="inline-flex items-center gap-1.5 ml-1 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includePii}
+              onChange={(e) => setIncludePii(e.target.checked)}
+              className="rounded border-white/30 text-red-500 focus:ring-red-500 bg-white/10"
+            />
+            <span className="text-xs font-medium text-red-300">PII</span>
+          </label>
         </div>
         <div className="flex flex-col items-end gap-1.5">
           {lastUpdated && (
@@ -165,7 +186,7 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         <StatsCards stats={stats} />
-        <TicketFilters filters={filters} onFilterChange={handleFilterChange} />
+        <TicketFilters filters={filters} onFilterChange={handleFilterChange} search={search} onSearchChange={handleSearchChange} />
 
         {error && (
           <div className="card-error mb-4">

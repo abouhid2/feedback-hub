@@ -5,6 +5,7 @@ import { ChangelogEntry } from "../../lib/types";
 import {
   fetchChangelog,
   generateChangelog,
+  previewChangelog,
   approveChangelog,
   rejectChangelog,
   updateChangelogDraft,
@@ -43,10 +44,10 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
     load();
   }, [load]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (customPrompt?: string) => {
     setActionLoading(true);
     try {
-      const entry = await generateChangelog(ticketId);
+      const entry = await generateChangelog(ticketId, customPrompt);
       setChangelog(entry);
       setToast({ message: "Changelog generated successfully", type: "success" });
     } catch (e) {
@@ -151,6 +152,7 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
           </h2>
           <ChangelogContentCreator
             onGenerate={handleGenerate}
+            onPreview={() => previewChangelog(ticketId)}
             onManualSubmit={handleManualCreate}
             generating={actionLoading}
             description="This ticket is resolved. Generate an AI changelog entry or write one manually."

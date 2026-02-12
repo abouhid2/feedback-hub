@@ -53,12 +53,13 @@ export interface PaginatedTickets {
   };
 }
 
-export function fetchTickets(filters?: { channel?: string; status?: string; priority?: string; type?: string; page?: number; per_page?: number }): Promise<PaginatedTickets> {
+export function fetchTickets(filters?: { channel?: string; status?: string; priority?: string; type?: string; search?: string; page?: number; per_page?: number }): Promise<PaginatedTickets> {
   const params: Record<string, string> = {};
   if (filters?.channel && filters.channel !== "all") params.channel = filters.channel;
   if (filters?.status && filters.status !== "all") params.status = filters.status;
   if (filters?.priority && filters.priority !== "all") params.priority = filters.priority;
   if (filters?.type && filters.type !== "all") params.type = filters.type;
+  if (filters?.search) params.search = filters.search;
   if (filters?.page) params.page = String(filters.page);
   if (filters?.per_page) params.per_page = String(filters.per_page);
   return request<PaginatedTickets>("/api/tickets", Object.keys(params).length > 0 ? params : undefined);
@@ -76,8 +77,18 @@ export async function fetchChangelog(ticketId: string): Promise<ChangelogEntry |
   }
 }
 
-export function generateChangelog(ticketId: string): Promise<ChangelogEntry> {
-  return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/generate_changelog`, "POST");
+export interface ChangelogPreview {
+  original: string;
+  scrubbed: string;
+  redactions: { type: string; original: string }[];
+}
+
+export function previewChangelog(ticketId: string): Promise<ChangelogPreview> {
+  return request<ChangelogPreview>(`/api/tickets/${ticketId}/preview_changelog`);
+}
+
+export function generateChangelog(ticketId: string, customPrompt?: string): Promise<ChangelogEntry> {
+  return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/generate_changelog`, "POST", customPrompt ? { prompt: customPrompt } : undefined);
 }
 
 export function approveChangelog(ticketId: string, approvedBy: string): Promise<ChangelogEntry> {
@@ -92,7 +103,14 @@ export function updateChangelogDraft(ticketId: string, content: string): Promise
   return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/update_changelog_draft`, "PATCH", { content });
 }
 
-export function simulateTicket(channel: "slack" | "intercom" | "whatsapp"): Promise<unknown> {
+export function simulateTicket(channel: "slack" | "intercom" | "whatsapp", options?: { includePii?: boolean }): Promise<unknown> {
+  const piiText = options?.includePii
+    ? "Login broken for user maria.garcia@company.com (phone: +56 9 8765 4321). SSN: 123-45-6789. Password: hunter2. Please fix ASAP."
+    : "Test ticket from frontend simulator";
+
+  const piiName = options?.includePii ? "Maria Garcia" : "Test User";
+  const piiEmail = options?.includePii ? "maria.garcia@company.com" : "test@example.com";
+
   const payloads: Record<string, () => Record<string, unknown>> = {
     slack: () => ({
       token: `xoxb-${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`,
@@ -101,19 +119,21 @@ export function simulateTicket(channel: "slack" | "intercom" | "whatsapp"): Prom
       channel_id: "C_BUGS",
       channel_name: "bugs",
       user_id: `U_TEST${crypto.randomUUID().slice(0, 6).toUpperCase()}`,
-      user_name: "test_user",
+      user_name: options?.includePii ? "maria.garcia" : "test_user",
       command: "/bug",
-      text: "Test ticket from frontend simulator",
+      text: piiText,
       trigger_id: `${Date.now()}.123.abc`,
       response_url: `https://hooks.slack.com/commands/${crypto.randomUUID().slice(0, 12)}`,
       payload: {
         issue_id: `SIM${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-        reporter: "test_user",
+        reporter: options?.includePii ? "maria.garcia" : "test_user",
         priority: ["critica", "alta", "media", "baja"][Math.floor(Math.random() * 4)],
-        incident: "Test ticket from frontend simulator",
+        incident: piiText,
         agency: "TestAgency",
         job_id: `https://love.feedback-hub.ai/es/positions/${crypto.randomUUID().slice(0, 12)}`,
-        additional_details: "Created via frontend simulate button",
+        additional_details: options?.includePii
+          ? "User shared credentials: pwd=secret123, contact at 555-012-3456"
+          : "Created via frontend simulate button",
       },
     }),
     intercom: () => ({
@@ -126,12 +146,12 @@ export function simulateTicket(channel: "slack" | "intercom" | "whatsapp"): Prom
           created_at: Math.floor(Date.now() / 1000),
           source: {
             type: "conversation",
-            body: "Test ticket from frontend simulator",
+            body: piiText,
             author: {
               type: "user",
               id: `user_${crypto.randomUUID().slice(0, 12)}`,
-              name: "Test User",
-              email: "test@example.com",
+              name: piiName,
+              email: piiEmail,
             },
           },
           conversation_parts: { total_count: 0 },
@@ -148,14 +168,14 @@ export function simulateTicket(channel: "slack" | "intercom" | "whatsapp"): Prom
               value: {
                 messaging_product: "whatsapp",
                 metadata: { phone_number_id: `PHONE_${crypto.randomUUID().slice(0, 8).toUpperCase()}` },
-                contacts: [{ profile: { name: "Test User" }, wa_id: "56900000000" }],
+                contacts: [{ profile: { name: piiName }, wa_id: options?.includePii ? "56987654321" : "56900000000" }],
                 messages: [
                   {
                     id: `wamid.${crypto.randomUUID().replace(/-/g, "")}`,
-                    from: "56900000000",
+                    from: options?.includePii ? "56987654321" : "56900000000",
                     timestamp: `${Math.floor(Date.now() / 1000)}`,
                     type: "text",
-                    text: { body: "Test ticket from frontend simulator" },
+                    text: { body: piiText },
                   },
                 ],
               },

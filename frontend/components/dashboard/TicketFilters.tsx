@@ -1,3 +1,5 @@
+import { useState, useEffect, useRef } from "react";
+
 interface Filters {
   channel: string;
   status: string;
@@ -8,6 +10,8 @@ interface Filters {
 interface TicketFiltersProps {
   filters: Filters;
   onFilterChange: (key: keyof Filters, value: string) => void;
+  search: string;
+  onSearchChange: (value: string) => void;
 }
 
 const STATUS_OPTIONS = [
@@ -35,9 +39,32 @@ const TYPE_OPTIONS = [
   { value: "incident", label: "Incident" },
 ];
 
-export default function TicketFilters({ filters, onFilterChange }: TicketFiltersProps) {
+export default function TicketFilters({ filters, onFilterChange, search, onSearchChange }: TicketFiltersProps) {
+  const [localSearch, setLocalSearch] = useState(search);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setLocalSearch(search);
+  }, [search]);
+
+  const handleSearchInput = (value: string) => {
+    setLocalSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => onSearchChange(value), 300);
+  };
+
   return (
     <div className="flex flex-wrap gap-3 mb-4">
+      <div>
+        <label className="text-xs font-medium text-gray-500 mb-1 block">Search</label>
+        <input
+          type="text"
+          value={localSearch}
+          onChange={(e) => handleSearchInput(e.target.value)}
+          placeholder="Search tickets..."
+          className="input-field w-48"
+        />
+      </div>
       <div>
         <label className="text-xs font-medium text-gray-500 mb-1 block">Channel</label>
         <select
