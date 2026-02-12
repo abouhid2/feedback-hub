@@ -3,11 +3,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Ticket } from "../lib/types";
-import { fetchTickets as apiFetchTickets, fetchMetrics, simulateTicket } from "../lib/api";
+import { fetchTickets as apiFetchTickets, fetchMetrics, simulateTicket, createTicketGroup } from "../lib/api";
 import StatsCards from "../components/dashboard/StatsCards";
 import TicketFilters from "../components/dashboard/TicketFilters";
 import TicketTable from "../components/dashboard/TicketTable";
 import PageHeader from "../components/PageHeader";
+import CreateGroupModal from "../components/ticket-groups/CreateGroupModal";
+import Toast from "../components/Toast";
 
 const CHANNELS = [
   { key: "slack" as const, label: "Slack", cls: "simulate-btn-slack" },
@@ -38,6 +40,13 @@ export default function Dashboard() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [simulating, setSimulating] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
+  const [paused, setPaused] = useState(false);
+
+  // Auto-pause when selecting tickets
+  const effectivePaused = paused || selectedIds.size > 0;
 
   const handleSimulateTicket = async (channel: "slack" | "intercom" | "whatsapp") => {
     setSimulating(channel);
@@ -75,14 +84,47 @@ export default function Dashboard() {
   }, [filters, page]);
 
   useEffect(() => {
-    refreshData();
-    const interval = setInterval(refreshData, 5000);
-    return () => clearInterval(interval);
-  }, [refreshData]);
+    if (!effectivePaused) {
+      refreshData();
+      const interval = setInterval(refreshData, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [refreshData, effectivePaused]);
 
   const handleFilterChange = (key: keyof Filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setPage(1);
+  };
+
+  const handleToggle = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleAll = () => {
+    if (tickets.every((t) => selectedIds.has(t.id))) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(tickets.map((t) => t.id)));
+    }
+  };
+
+  const selectedTickets = tickets.filter((t) => selectedIds.has(t.id));
+
+  const handleCreateGroup = async (name: string, primaryTicketId: string) => {
+    try {
+      await createTicketGroup(name, Array.from(selectedIds), primaryTicketId);
+      setToast({ message: `Group "${name}" created with ${selectedIds.size} tickets`, type: "success" });
+      setSelectedIds(new Set());
+      setShowCreateGroup(false);
+      await refreshData();
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Failed to create group", type: "error" });
+    }
   };
 
   return (
@@ -101,14 +143,23 @@ export default function Dashboard() {
             </button>
           ))}
         </div>
-        <div className="text-right">
+        <div className="flex flex-col items-end gap-1.5">
           {lastUpdated && (
-            <span>Updated: {lastUpdated.toLocaleTimeString()}</span>
+            <span className="text-xs text-text-muted">
+              Updated {lastUpdated.toLocaleTimeString()}
+            </span>
           )}
-          <div className="flex items-center gap-1 mt-1">
-            <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span>Auto-refreshing every 5s</span>
-          </div>
+          <button
+            onClick={() => setPaused((p) => !p)}
+            className={`inline-flex items-center gap-1.5 ${effectivePaused ? "toggle-active" : "toggle-inactive"}`}
+          >
+            <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+              effectivePaused ? "bg-amber-500" : "bg-green-500 animate-pulse"
+            }`} />
+            {effectivePaused
+              ? (selectedIds.size > 0 && !paused ? "Paused (selecting)" : "Paused")
+              : "Live"}
+          </button>
         </div>
       </PageHeader>
 
@@ -144,9 +195,39 @@ export default function Dashboard() {
             page={page}
             totalPages={totalPages}
             onPageChange={setPage}
+            selectedIds={selectedIds}
+            onToggle={handleToggle}
+            onToggleAll={handleToggleAll}
           />
         )}
+
+        {/* Floating action bar for group creation */}
+        {selectedIds.size >= 2 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-4 z-40">
+            <span className="text-sm">
+              {selectedIds.size} tickets selected
+            </span>
+            <button
+              onClick={() => setShowCreateGroup(true)}
+              className="bg-brand hover:bg-brand/90 text-white px-4 py-1.5 rounded-md text-sm font-medium"
+            >
+              Group Selected
+            </button>
+          </div>
+        )}
       </main>
+
+      {showCreateGroup && (
+        <CreateGroupModal
+          tickets={selectedTickets}
+          onConfirm={handleCreateGroup}
+          onClose={() => setShowCreateGroup(false)}
+        />
+      )}
+
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
     </div>
   );
 }

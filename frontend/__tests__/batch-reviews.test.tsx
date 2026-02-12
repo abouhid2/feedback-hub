@@ -1,114 +1,102 @@
 import "@testing-library/jest-dom";
-import { render, screen, fireEvent } from "@testing-library/react";
-import BatchReviewsPage from "../app/batch-reviews/page";
+import { render, screen, act } from "@testing-library/react";
+import TicketGroupsPage from "../app/ticket-groups/page";
 
-const mockNotifications = [
+const mockGroups = [
   {
-    id: "notif-1",
-    ticket_id: "ticket-1",
-    changelog_entry_id: "entry-1",
-    channel: "slack",
-    recipient: "U_USER1",
-    status: "pending_batch_review",
-    content: "We fixed the login issue.",
+    id: "group-1",
+    name: "Login bug duplicates",
+    status: "open",
+    primary_ticket_id: "ticket-1",
+    resolved_via_channel: null,
+    resolved_at: null,
+    resolution_note: null,
+    ticket_count: 2,
     created_at: new Date().toISOString(),
-  },
-  {
-    id: "notif-2",
-    ticket_id: "ticket-2",
-    changelog_entry_id: "entry-2",
-    channel: "whatsapp",
-    recipient: "56900000000",
-    status: "pending_batch_review",
-    content: "Dark mode has been added.",
-    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   },
 ];
 
-beforeEach(() => {
-  global.fetch = jest.fn(() =>
-    Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve(mockNotifications),
-    })
-  ) as jest.Mock;
+const mockGroupDetail = {
+  ...mockGroups[0],
+  tickets: [
+    {
+      id: "ticket-1",
+      title: "Login fails on Chrome",
+      ticket_type: "bug",
+      priority: 1,
+      status: "open",
+      original_channel: "slack",
+      reporter: { name: "Alice", email: "alice@test.com" },
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: "ticket-2",
+      title: "Login fails on Safari",
+      ticket_type: "bug",
+      priority: 2,
+      status: "open",
+      original_channel: "whatsapp",
+      reporter: { name: "Bob", email: "bob@test.com" },
+      created_at: new Date().toISOString(),
+    },
+  ],
+};
 
-  window.confirm = jest.fn(() => true);
+let fetchCallCount = 0;
+
+beforeEach(() => {
+  jest.useFakeTimers();
+  fetchCallCount = 0;
+  global.fetch = jest.fn(() => {
+    fetchCallCount++;
+    // First call: fetchTicketGroups (list), subsequent calls: fetchTicketGroup (detail)
+    if (fetchCallCount === 1) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockGroups),
+      });
+    }
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(mockGroupDetail),
+    });
+  }) as jest.Mock;
 });
 
 afterEach(() => {
+  jest.useRealTimers();
   jest.restoreAllMocks();
 });
 
-describe("Batch Reviews Page", () => {
+describe("Ticket Groups Page", () => {
   it("renders the page header", async () => {
-    render(<BatchReviewsPage />);
-    expect(screen.getByText("Batch Review")).toBeInTheDocument();
+    await act(async () => { render(<TicketGroupsPage />); });
+    expect(screen.getByText("Ticket Groups")).toBeInTheDocument();
   });
 
-  it("renders pending notifications in a table", async () => {
-    render(<BatchReviewsPage />);
-    expect(await screen.findByText("We fixed the login issue.")).toBeInTheDocument();
-    expect(screen.getByText("Dark mode has been added.")).toBeInTheDocument();
+  it("renders group cards with ticket details", async () => {
+    await act(async () => { render(<TicketGroupsPage />); });
+    expect(await screen.findByText("Login bug duplicates")).toBeInTheDocument();
+    expect(screen.getByText("Login fails on Chrome")).toBeInTheDocument();
+    expect(screen.getByText("Login fails on Safari")).toBeInTheDocument();
   });
 
-  it("renders channel badges", async () => {
-    render(<BatchReviewsPage />);
-    await screen.findByText("We fixed the login issue.");
+  it("renders status filter buttons", async () => {
+    await act(async () => { render(<TicketGroupsPage />); });
+    expect(screen.getByText("All")).toBeInTheDocument();
+    expect(screen.getByText("Open")).toBeInTheDocument();
+    expect(screen.getByText("Resolved")).toBeInTheDocument();
+  });
+
+  it("renders channel badges in group tickets", async () => {
+    await act(async () => { render(<TicketGroupsPage />); });
+    await screen.findByText("Login bug duplicates");
     expect(screen.getByText(/slack/i)).toBeInTheDocument();
     expect(screen.getByText(/whatsapp/i)).toBeInTheDocument();
   });
 
-  it("renders action buttons", async () => {
-    render(<BatchReviewsPage />);
-    await screen.findByText("We fixed the login issue.");
-    expect(screen.getByRole("button", { name: /approve all/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /approve selected/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /reject all/i })).toBeInTheDocument();
-  });
-
-  it("renders checkboxes for selection", async () => {
-    render(<BatchReviewsPage />);
-    await screen.findByText("We fixed the login issue.");
-    const checkboxes = screen.getAllByRole("checkbox");
-    // 1 header checkbox + 2 row checkboxes
-    expect(checkboxes).toHaveLength(3);
-  });
-
-  it("updates selected count when checkboxes are toggled", async () => {
-    render(<BatchReviewsPage />);
-    await screen.findByText("We fixed the login issue.");
-
-    expect(screen.getByText("0 of 2 selected")).toBeInTheDocument();
-
-    const checkboxes = screen.getAllByRole("checkbox");
-    fireEvent.click(checkboxes[1]); // first row
-    expect(screen.getByText("1 of 2 selected")).toBeInTheDocument();
-
-    fireEvent.click(checkboxes[2]); // second row
-    expect(screen.getByText("2 of 2 selected")).toBeInTheDocument();
-  });
-
-  it("select all checkbox toggles all rows", async () => {
-    render(<BatchReviewsPage />);
-    await screen.findByText("We fixed the login issue.");
-
-    const checkboxes = screen.getAllByRole("checkbox");
-    fireEvent.click(checkboxes[0]); // header checkbox = select all
-    expect(screen.getByText("2 of 2 selected")).toBeInTheDocument();
-
-    fireEvent.click(checkboxes[0]); // deselect all
-    expect(screen.getByText("0 of 2 selected")).toBeInTheDocument();
-  });
-
-  it("renders warning banner about mass-resolution", async () => {
-    render(<BatchReviewsPage />);
-    await screen.findByText("We fixed the login issue.");
-    expect(screen.getByText(/held for batch review/i)).toBeInTheDocument();
-    expect(screen.getByText(/mass-resolution/i)).toBeInTheDocument();
-  });
-
-  it("shows empty state when no pending reviews", async () => {
+  it("shows empty state when no groups", async () => {
     global.fetch = jest.fn(() =>
       Promise.resolve({
         ok: true,
@@ -116,7 +104,13 @@ describe("Batch Reviews Page", () => {
       })
     ) as jest.Mock;
 
-    render(<BatchReviewsPage />);
-    expect(await screen.findByText("No pending batch reviews")).toBeInTheDocument();
+    await act(async () => { render(<TicketGroupsPage />); });
+    expect(await screen.findByText("No ticket groups")).toBeInTheDocument();
+  });
+
+  it("renders resolve button for open groups", async () => {
+    await act(async () => { render(<TicketGroupsPage />); });
+    await screen.findByText("Login bug duplicates");
+    expect(screen.getByRole("button", { name: /^resolve$/i })).toBeInTheDocument();
   });
 });

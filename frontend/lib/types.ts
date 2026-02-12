@@ -7,6 +7,7 @@ export interface Ticket {
   original_channel: string;
   reporter: { name: string; email: string | null } | null;
   tags: string[];
+  ticket_group_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -37,17 +38,6 @@ export interface ChangelogEntry {
   updated_at: string;
 }
 
-export interface BatchNotification {
-  id: string;
-  ticket_id: string;
-  changelog_entry_id: string;
-  channel: string;
-  recipient: string;
-  status: string;
-  content: string;
-  created_at: string;
-}
-
 export interface Notification {
   id: string;
   ticket_id: string;
@@ -70,6 +60,32 @@ export interface TicketDetail extends Ticket {
   ai_summary: string | null;
   enrichment_status: string | null;
   notion_page_id: string | null;
+  ticket_group: { id: string; name: string; status: string } | null;
   sources: TicketSource[];
   events: TicketEvent[];
+}
+
+export interface TicketGroupTicket {
+  id: string;
+  title: string;
+  ticket_type: string;
+  priority: number;
+  status: string;
+  original_channel: string;
+  reporter: { name: string; email: string | null } | null;
+  created_at: string;
+}
+
+export interface TicketGroup {
+  id: string;
+  name: string;
+  status: string;
+  primary_ticket_id: string | null;
+  resolved_via_channel: string | null;
+  resolved_at: string | null;
+  resolution_note: string | null;
+  ticket_count: number;
+  tickets?: TicketGroupTicket[];
+  created_at: string;
+  updated_at: string;
 }

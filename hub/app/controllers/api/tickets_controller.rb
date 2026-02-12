@@ -4,7 +4,7 @@ module Api
       page = (params[:page] || 1).to_i
       per_page = (params[:per_page] || 20).to_i.clamp(1, 100)
 
-      base = Ticket.includes(:reporter, :ticket_sources)
+      base = Ticket.includes(:reporter, :ticket_sources, :ticket_group)
         .by_status(params[:status])
         .by_channel(params[:channel])
         .by_priority(params[:priority])
@@ -26,7 +26,7 @@ module Api
     end
 
     def show
-      ticket = Ticket.includes(:reporter, :ticket_sources, :ticket_events)
+      ticket = Ticket.includes(:reporter, :ticket_sources, :ticket_events, :ticket_group)
         .find(params[:id])
 
       render json: serialize_ticket_detail(ticket)
@@ -112,6 +112,7 @@ module Api
         original_channel: ticket.original_channel,
         reporter: ticket.reporter ? { name: ticket.reporter.name, email: ticket.reporter.email } : nil,
         tags: ticket.tags,
+        ticket_group_id: ticket.ticket_group_id,
         created_at: ticket.created_at,
         updated_at: ticket.updated_at
       }
@@ -126,6 +127,7 @@ module Api
         ai_summary: ticket.ai_summary,
         enrichment_status: ticket.enrichment_status,
         notion_page_id: ticket.notion_page_id,
+        ticket_group: ticket.ticket_group ? { id: ticket.ticket_group.id, name: ticket.ticket_group.name, status: ticket.ticket_group.status } : nil,
         sources: ticket.ticket_sources.map { |s|
           { platform: s.platform, external_id: s.external_id,
             external_url: s.external_url, raw_payload: s.raw_payload }

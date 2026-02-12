@@ -35,7 +35,7 @@ const mockNotifications = [
     changelog_entry_id: null,
     channel: "intercom",
     recipient: "user@example.com",
-    status: "pending_batch_review",
+    status: "pending",
     content: "Performance improvements shipped.",
     retry_count: 0,
     last_error: null,
@@ -80,8 +80,8 @@ describe("Notifications Page", () => {
     expect(sentElements.length).toBeGreaterThanOrEqual(2); // option + badge
     const failedElements = screen.getAllByText("Failed");
     expect(failedElements.length).toBeGreaterThanOrEqual(2);
-    // "Batch Hold" only appears in badge (dropdown shows "Batch Hold" too)
-    expect(screen.getAllByText("Batch Hold").length).toBeGreaterThanOrEqual(1);
+    const pendingElements = screen.getAllByText("Pending");
+    expect(pendingElements.length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows channel badges in table rows", async () => {

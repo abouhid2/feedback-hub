@@ -15,14 +15,38 @@ interface TicketTableProps {
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  selectedIds?: Set<string>;
+  onToggle?: (id: string) => void;
+  onToggleAll?: () => void;
 }
 
-export default function TicketTable({ tickets, page, totalPages, onPageChange }: TicketTableProps) {
+export default function TicketTable({
+  tickets,
+  page,
+  totalPages,
+  onPageChange,
+  selectedIds,
+  onToggle,
+  onToggleAll,
+}: TicketTableProps) {
+  const showCheckboxes = selectedIds !== undefined && onToggle !== undefined;
+  const allSelected = showCheckboxes && tickets.length > 0 && tickets.every((t) => selectedIds!.has(t.id));
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
       <table className="w-full">
         <thead className="bg-slate-50 border-b border-gray-200">
           <tr>
+            {showCheckboxes && (
+              <th className="table-th w-10">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={onToggleAll}
+                  className="rounded border-gray-300"
+                />
+              </th>
+            )}
             <th className="table-th">Priority</th>
             <th className="table-th">Channel</th>
             <th className="table-th">Title</th>
@@ -36,8 +60,20 @@ export default function TicketTable({ tickets, page, totalPages, onPageChange }:
           {tickets.map((ticket) => (
             <tr
               key={ticket.id}
-              className="hover:bg-brand-light transition-colors"
+              className={`hover:bg-brand-light transition-colors ${
+                showCheckboxes && selectedIds!.has(ticket.id) ? "bg-brand-light" : ""
+              }`}
             >
+              {showCheckboxes && (
+                <td className="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds!.has(ticket.id)}
+                    onChange={() => onToggle!(ticket.id)}
+                    className="rounded border-gray-300"
+                  />
+                </td>
+              )}
               <td className="px-4 py-3">
                 <span
                   className={`badge-priority ${

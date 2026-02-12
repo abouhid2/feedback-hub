@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_11_223333) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_12_100647) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -113,6 +113,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_11_223333) do
     t.index ["ticket_id"], name: "index_ticket_events_on_ticket_id"
   end
 
+  create_table "ticket_groups", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.uuid "primary_ticket_id"
+    t.text "resolution_note"
+    t.datetime "resolved_at"
+    t.string "resolved_via_channel"
+    t.string "status", default: "open", null: false
+    t.datetime "updated_at", null: false
+    t.index ["status"], name: "index_ticket_groups_on_status"
+  end
+
   create_table "ticket_sources", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "external_id", null: false
@@ -139,6 +151,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_11_223333) do
     t.uuid "reporter_id"
     t.string "status", default: "open", null: false
     t.jsonb "tags", default: []
+    t.uuid "ticket_group_id"
     t.string "ticket_type", default: "bug", null: false
     t.string "title", null: false
     t.datetime "updated_at", null: false
@@ -149,6 +162,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_11_223333) do
     t.index ["priority"], name: "index_tickets_on_priority"
     t.index ["reporter_id"], name: "index_tickets_on_reporter_id"
     t.index ["status"], name: "index_tickets_on_status"
+    t.index ["ticket_group_id"], name: "index_tickets_on_ticket_group_id"
     t.index ["ticket_type"], name: "index_tickets_on_ticket_type"
   end
 
@@ -160,4 +174,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_11_223333) do
   add_foreign_key "ticket_events", "tickets"
   add_foreign_key "ticket_sources", "tickets"
   add_foreign_key "tickets", "reporters"
+  add_foreign_key "tickets", "ticket_groups"
 end

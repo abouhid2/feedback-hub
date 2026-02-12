@@ -88,39 +88,5 @@ RSpec.describe NotificationDispatchService, type: :service do
       end
     end
 
-    context "when batch scenario applies (>5 approved in 5min window)" do
-      before do
-        # Create 6 approved entries within the batch window to trigger batch mode
-        6.times do
-          t = create(:ticket, :resolved, reporter: reporter, original_channel: "slack")
-          create(:changelog_entry, :approved, ticket: t, approved_at: 1.minute.ago)
-        end
-      end
-
-      it "creates notification with pending_batch_review status" do
-        notification = described_class.call(entry)
-        expect(notification.status).to eq("pending_batch_review")
-      end
-
-      it "does not deliver the notification" do
-        expect_any_instance_of(described_class).not_to receive(:deliver)
-        described_class.call(entry)
-      end
-    end
-
-    context "when batch threshold is not met" do
-      before do
-        # Only 3 approved entries — below threshold
-        3.times do
-          t = create(:ticket, :resolved, reporter: reporter, original_channel: "slack")
-          create(:changelog_entry, :approved, ticket: t, approved_at: 1.minute.ago)
-        end
-      end
-
-      it "creates notification with pending status and delivers" do
-        notification = described_class.call(entry)
-        expect(notification.status).to eq("sent")
-      end
-    end
   end
 end

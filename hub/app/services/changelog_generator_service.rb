@@ -9,6 +9,55 @@ class ChangelogGeneratorService
     new(ticket).call
   end
 
+  def self.generate_for_group(group)
+    raise AiApiError, "OpenAI rate limit cooldown active — try again later" if Rails.cache.exist?("openai:rate_limited")
+
+    tickets = group.tickets.includes(:reporter)
+    prompt_text = build_group_prompt(tickets)
+    scrubbed = PiiScrubberService.scrub(prompt_text)[:scrubbed]
+
+    uri = URI(OPENAI_URL)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+
+    request = Net::HTTP::Post.new(uri)
+    request["Content-Type"] = "application/json"
+    request["Authorization"] = "Bearer #{ENV.fetch('OPENAI_API_KEY', 'test-key')}"
+    request.body = {
+      model: MODEL,
+      messages: [
+        { role: "system", content: "You are a customer communication specialist. Generate a brief, friendly resolution message for end users about a group of related resolved support tickets. Keep it concise (2-4 sentences), professional, and focused on what was fixed and how it benefits users. Do not include technical jargon." },
+        { role: "user", content: scrubbed }
+      ],
+      temperature: 0.7,
+      max_tokens: 400
+    }.to_json
+
+    response = http.request(request)
+
+    if response.code == "429"
+      wait = response["Retry-After"]&.to_i || 20
+      Rails.cache.write("openai:rate_limited", true, expires_in: [wait, 60].max.seconds)
+    end
+
+    raise AiApiError, "OpenAI returned #{response.code}: #{response.body}" unless response.code == "200"
+
+    parsed = JSON.parse(response.body)
+    parsed.dig("choices", 0, "message", "content")
+  end
+
+  def self.build_group_prompt(tickets)
+    parts = ["Group of #{tickets.size} related tickets:"]
+    tickets.each_with_index do |ticket, i|
+      parts << "Ticket #{i + 1}: #{ticket.title}"
+      parts << "  Description: #{ticket.description}" if ticket.description.present?
+      parts << "  Channel: #{ticket.original_channel}"
+      parts << "  Type: #{ticket.ticket_type}"
+    end
+    parts.join("\n")
+  end
+  private_class_method :build_group_prompt
+
   def initialize(ticket)
     @ticket = ticket
   end

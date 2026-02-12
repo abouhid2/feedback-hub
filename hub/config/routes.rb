@@ -22,12 +22,13 @@ Rails.application.routes.draw do
 
     resources :notifications, only: [:index, :show]
 
-    resource :batch_reviews, only: [] do
-      get :pending
-      post :approve_all
-      post :approve_selected
-      post :reject_all
-      post :simulate
+    resources :ticket_groups, only: [:index, :show, :create] do
+      member do
+        post :add_tickets
+        delete :remove_ticket
+        post :resolve
+        post :generate_content
+      end
     end
 
     resource :metrics, only: [] do

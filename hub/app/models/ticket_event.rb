@@ -7,6 +7,7 @@ class TicketEvent < ApplicationRecord
     notification_sent notification_failed
     synced_to_notion
     ai_triaged
+    ticket_grouped group_resolved
   ].freeze
 
   validates :event_type, presence: true, inclusion: { in: EVENT_TYPES }

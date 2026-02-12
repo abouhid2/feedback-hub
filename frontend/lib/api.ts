@@ -1,4 +1,4 @@
-import { Ticket, TicketDetail, ChangelogEntry, BatchNotification, Notification } from "./types";
+import { Ticket, TicketDetail, ChangelogEntry, Notification, TicketGroup } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
@@ -174,29 +174,47 @@ export function simulateStatus(ticketId: string, status: string): Promise<Ticket
   return mutate<TicketDetail>(`/api/tickets/${ticketId}/simulate_status`, "POST", { status });
 }
 
-// Batch Reviews
-export function fetchPendingBatchReviews(): Promise<BatchNotification[]> {
-  return request<BatchNotification[]>("/api/batch_reviews/pending");
-}
-
-export function batchApproveAll(notificationIds: string[]): Promise<{ approved: number }> {
-  return mutate<{ approved: number }>("/api/batch_reviews/approve_all", "POST", { notification_ids: notificationIds });
-}
-
-export function batchApproveSelected(notificationIds: string[]): Promise<{ approved: number }> {
-  return mutate<{ approved: number }>("/api/batch_reviews/approve_selected", "POST", { notification_ids: notificationIds });
-}
-
-export function batchRejectAll(notificationIds: string[]): Promise<{ rejected: number }> {
-  return mutate<{ rejected: number }>("/api/batch_reviews/reject_all", "POST", { notification_ids: notificationIds });
-}
-
 export function createManualChangelog(ticketId: string, content: string): Promise<ChangelogEntry> {
   return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/manual_changelog`, "POST", { content });
 }
 
-export function simulateBatchReview(count?: number): Promise<{ simulated: number; notification_ids: string[] }> {
-  return mutate<{ simulated: number; notification_ids: string[] }>("/api/batch_reviews/simulate", "POST", count ? { count } : {});
+// Ticket Groups
+export function fetchTicketGroups(status?: string): Promise<TicketGroup[]> {
+  const params: Record<string, string> = {};
+  if (status && status !== "all") params.status = status;
+  return request<TicketGroup[]>("/api/ticket_groups", Object.keys(params).length > 0 ? params : undefined);
+}
+
+export function fetchTicketGroup(id: string): Promise<TicketGroup> {
+  return request<TicketGroup>(`/api/ticket_groups/${id}`);
+}
+
+export function createTicketGroup(name: string, ticketIds: string[], primaryTicketId: string): Promise<TicketGroup> {
+  return mutate<TicketGroup>("/api/ticket_groups", "POST", {
+    name,
+    ticket_ids: ticketIds,
+    primary_ticket_id: primaryTicketId,
+  });
+}
+
+export function addTicketsToGroup(groupId: string, ticketIds: string[]): Promise<TicketGroup> {
+  return mutate<TicketGroup>(`/api/ticket_groups/${groupId}/add_tickets`, "POST", { ticket_ids: ticketIds });
+}
+
+export function removeTicketFromGroup(groupId: string, ticketId: string): Promise<TicketGroup | { dissolved: boolean }> {
+  return mutate<TicketGroup | { dissolved: boolean }>(`/api/ticket_groups/${groupId}/remove_ticket`, "DELETE", { ticket_id: ticketId });
+}
+
+export function resolveTicketGroup(groupId: string, channel: string, content: string, resolutionNote?: string): Promise<TicketGroup> {
+  return mutate<TicketGroup>(`/api/ticket_groups/${groupId}/resolve`, "POST", {
+    channel,
+    content,
+    resolution_note: resolutionNote,
+  });
+}
+
+export function generateGroupContent(groupId: string): Promise<{ content: string }> {
+  return mutate<{ content: string }>(`/api/ticket_groups/${groupId}/generate_content`, "POST");
 }
 
 // Notifications
