@@ -18,5 +18,6 @@ class Ticket < ApplicationRecord
   scope :by_channel, ->(channel) { where(original_channel: channel) if channel.present? }
   scope :by_priority, ->(priority) { where(priority: priority) if priority.present? }
   scope :by_type, ->(type) { where(ticket_type: type) if type.present? }
+  scope :search, ->(query) { where("title ILIKE :q OR description ILIKE :q", q: "%#{sanitize_sql_like(query)}%") if query.present? }
   scope :recent, -> { order(created_at: :desc) }
 end

@@ -12,6 +12,7 @@ Rails.application.routes.draw do
       member do
         get :changelog, to: "changelogs#show"
         post :generate_changelog, to: "changelogs#create"
+        get :preview_changelog, to: "changelogs#preview"
         post :manual_changelog, to: "changelogs#manual_create"
         patch :approve_changelog, to: "changelogs#approve"
         patch :reject_changelog, to: "changelogs#reject"

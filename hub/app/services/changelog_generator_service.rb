@@ -5,8 +5,8 @@ class ChangelogGeneratorService
   OPENAI_URL = "https://api.openai.com/v1/chat/completions".freeze
   MODEL = "gpt-4o-mini".freeze
 
-  def self.call(ticket)
-    new(ticket).call
+  def self.call(ticket, custom_prompt: nil)
+    new(ticket, custom_prompt: custom_prompt).call
   end
 
   def self.generate_for_group(group)
@@ -58,8 +58,9 @@ class ChangelogGeneratorService
   end
   private_class_method :build_group_prompt
 
-  def initialize(ticket)
+  def initialize(ticket, custom_prompt: nil)
     @ticket = ticket
+    @custom_prompt = custom_prompt
   end
 
   def call
@@ -110,7 +111,7 @@ class ChangelogGeneratorService
       model: MODEL,
       messages: [
         { role: "system", content: system_prompt },
-        { role: "user", content: user_prompt }
+        { role: "user", content: @custom_prompt || user_prompt }
       ],
       temperature: 0.7,
       max_tokens: 300

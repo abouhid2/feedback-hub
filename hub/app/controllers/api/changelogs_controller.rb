@@ -10,7 +10,7 @@ module Api
     end
 
     def create
-      entry = ChangelogGeneratorService.call(@ticket)
+      entry = ChangelogGeneratorService.call(@ticket, custom_prompt: params[:prompt])
       render json: serialize_entry(entry), status: :created
     rescue ChangelogGeneratorService::InvalidTicketStatus => e
       render json: { error: e.message }, status: :unprocessable_entity
@@ -54,6 +54,19 @@ module Api
       render json: { error: e.message }, status: :unprocessable_entity
     end
 
+    def preview
+      return render json: { error: "Ticket must be resolved" }, status: :unprocessable_entity unless @ticket.status == "resolved"
+
+      ticket_text = build_ticket_text(@ticket)
+      result = PiiScrubberService.scrub(ticket_text)
+
+      render json: {
+        original: ticket_text,
+        scrubbed: result[:scrubbed],
+        redactions: result[:redactions].map { |r| { type: r[:type], original: r[:original] } }
+      }
+    end
+
     def manual_create
       return render json: { error: "Ticket must be resolved" }, status: :unprocessable_entity unless @ticket.status == "resolved"
       return render json: { error: "Changelog entry already exists" }, status: :unprocessable_entity if @ticket.changelog_entries.exists?
@@ -83,6 +96,16 @@ module Api
       @ticket = Ticket.find(params[:id])
     rescue ActiveRecord::RecordNotFound
       render json: { error: "Ticket not found" }, status: :not_found
+    end
+
+    def build_ticket_text(ticket)
+      parts = []
+      parts << "Ticket title: #{ticket.title}"
+      parts << "Description: #{ticket.description}" if ticket.description.present?
+      parts << "Channel: #{ticket.original_channel}"
+      parts << "Type: #{ticket.ticket_type}"
+      parts << "Reporter: #{ticket.reporter&.name}" if ticket.reporter
+      parts.join("\n")
     end
 
     def serialize_entry(entry)
