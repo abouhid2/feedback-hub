@@ -29,6 +29,7 @@ Rails.application.routes.draw do
         delete :remove_ticket
         post :resolve
         post :generate_content
+        get :preview_content
       end
     end
 

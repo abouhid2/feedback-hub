@@ -9,12 +9,16 @@ class ChangelogGeneratorService
     new(ticket, custom_prompt: custom_prompt, custom_system_prompt: custom_system_prompt, resolution_notes: resolution_notes, force: force).call
   end
 
-  def self.generate_for_group(group)
+  def self.generate_for_group(group, custom_prompt: nil, custom_system_prompt: nil, resolution_notes: nil)
     raise AiApiError, "OpenAI rate limit cooldown active — try again later" if Rails.cache.exist?("openai:rate_limited")
 
     tickets = group.tickets.includes(:reporter)
     prompt_text = build_group_prompt(tickets)
     scrubbed = PiiScrubberService.scrub(prompt_text)[:scrubbed]
+
+    user_message = custom_prompt || scrubbed
+    user_message = "#{user_message}\n\nDeveloper resolution notes:\n#{resolution_notes}" if resolution_notes.present? && custom_prompt.blank?
+    system_message = custom_system_prompt.presence || ChangelogPrompts::DEFAULT_GROUP_SYSTEM_PROMPT
 
     uri = URI(OPENAI_URL)
     http = Net::HTTP.new(uri.host, uri.port)
@@ -26,8 +30,8 @@ class ChangelogGeneratorService
     request.body = {
       model: MODEL,
       messages: [
-        { role: "system", content: "You are a customer communication specialist. Generate a brief, friendly resolution message for end users about a group of related resolved support tickets. Keep it concise (2-4 sentences), professional, and focused on what was fixed and how it benefits users. Do not include technical jargon." },
-        { role: "user", content: scrubbed }
+        { role: "system", content: system_message },
+        { role: "user", content: user_message }
       ],
       temperature: 0.7,
       max_tokens: 400
@@ -56,7 +60,6 @@ class ChangelogGeneratorService
     end
     parts.join("\n")
   end
-  private_class_method :build_group_prompt
 
   def initialize(ticket, custom_prompt: nil, custom_system_prompt: nil, resolution_notes: nil, force: false)
     @ticket = ticket

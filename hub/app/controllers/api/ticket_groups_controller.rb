@@ -64,12 +64,32 @@ module Api
 
     def generate_content
       group = TicketGroup.includes(tickets: :reporter).find(params[:id])
-      content = ChangelogGeneratorService.generate_for_group(group)
+      content = ChangelogGeneratorService.generate_for_group(
+        group,
+        custom_prompt: params[:prompt],
+        custom_system_prompt: params[:system_prompt],
+        resolution_notes: params[:resolution_notes]
+      )
       render json: { content: content }
     rescue ActiveRecord::RecordNotFound
       render json: { error: "Ticket group not found" }, status: :not_found
     rescue ChangelogGeneratorService::AiApiError => e
       render json: { error: e.message }, status: :unprocessable_entity
+    end
+
+    def preview_content
+      group = TicketGroup.includes(tickets: :reporter).find(params[:id])
+      ticket_text = ChangelogGeneratorService.build_group_prompt(group.tickets)
+      result = PiiScrubberService.scrub(ticket_text)
+
+      render json: {
+        original: ticket_text,
+        scrubbed: result[:scrubbed],
+        redactions: result[:redactions].map { |r| { type: r[:type], original: r[:original] } },
+        system_prompt: ChangelogPrompts::DEFAULT_GROUP_SYSTEM_PROMPT
+      }
+    rescue ActiveRecord::RecordNotFound
+      render json: { error: "Ticket group not found" }, status: :not_found
     end
 
     private

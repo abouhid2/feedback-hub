@@ -243,8 +243,20 @@ export function resolveTicketGroup(groupId: string, channel: string, content: st
   });
 }
 
-export function generateGroupContent(groupId: string): Promise<{ content: string }> {
-  return mutate<{ content: string }>(`/api/ticket_groups/${groupId}/generate_content`, "POST");
+export function previewGroupContent(groupId: string): Promise<ChangelogPreview> {
+  return request<ChangelogPreview>(`/api/ticket_groups/${groupId}/preview_content`);
+}
+
+export function generateGroupContent(
+  groupId: string,
+  options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string }
+): Promise<{ content: string }> {
+  if (!options) return mutate<{ content: string }>(`/api/ticket_groups/${groupId}/generate_content`, "POST");
+  const body: Record<string, unknown> = {};
+  if (options.prompt) body.prompt = options.prompt;
+  if (options.systemPrompt) body.system_prompt = options.systemPrompt;
+  if (options.resolutionNotes) body.resolution_notes = options.resolutionNotes;
+  return mutate<{ content: string }>(`/api/ticket_groups/${groupId}/generate_content`, "POST", Object.keys(body).length > 0 ? body : undefined);
 }
 
 // Notifications

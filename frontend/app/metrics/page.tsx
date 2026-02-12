@@ -202,7 +202,7 @@ export default function MetricsPage() {
                     <Bar
                       dataKey="value"
                       name="Tickets"
-                      onClick={(data) => navigateToFiltered("type", data.key)}
+                      onClick={(data) => data.key != null && navigateToFiltered("type", String(data.key))}
                     >
                       {byType.map((entry) => (
                         <Cell

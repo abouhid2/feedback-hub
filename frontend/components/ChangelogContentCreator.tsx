@@ -13,6 +13,7 @@ interface ChangelogContentCreatorProps {
   onGenerate: (options?: GenerateOptions) => Promise<void>;
   onManualSubmit: (content: string) => Promise<void>;
   onPreview?: () => Promise<ChangelogPreview>;
+  onCancel?: () => void;
   generating: boolean;
   description?: string;
   generateLabel?: string;
@@ -23,6 +24,7 @@ export default function ChangelogContentCreator({
   onGenerate,
   onManualSubmit,
   onPreview,
+  onCancel,
   generating,
   description,
   generateLabel = "Generate with AI",
@@ -131,16 +133,16 @@ export default function ChangelogContentCreator({
           </p>
         </div>
 
-        {/* Collapsible system prompt */}
-        <div className="border border-border rounded-lg overflow-hidden">
+        {/* System prompt */}
+        <div>
           <button
             type="button"
             onClick={() => setShowSystemPrompt(!showSystemPrompt)}
-            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-text-secondary uppercase tracking-wide hover:bg-surface-inset transition-colors"
+            className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5"
           >
             <span>AI instructions (system prompt)</span>
             <svg
-              className={`w-4 h-4 text-text-muted transition-transform ${showSystemPrompt ? "rotate-180" : ""}`}
+              className={`w-3.5 h-3.5 text-text-muted transition-transform ${showSystemPrompt ? "rotate-180" : ""}`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -150,7 +152,7 @@ export default function ChangelogContentCreator({
             </svg>
           </button>
           {showSystemPrompt && (
-            <div className="px-3 pb-3 animate-fade-in">
+            <div className="animate-fade-in">
               <textarea
                 value={editedSystemPrompt}
                 onChange={(e) => setEditedSystemPrompt(e.target.value)}
@@ -165,20 +167,22 @@ export default function ChangelogContentCreator({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 pt-1">
+        <div className="flex justify-end gap-2 pt-1">
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              disabled={generating}
+              className="btn-secondary px-4 py-2"
+            >
+              Cancel
+            </button>
+          )}
           <button
             onClick={handleConfirmGenerate}
             disabled={generating}
             className="btn-primary px-4 py-2"
           >
             {generating ? "Generating..." : "Confirm & Generate"}
-          </button>
-          <button
-            onClick={() => setPreview(null)}
-            disabled={generating}
-            className="btn-secondary px-4 py-2"
-          >
-            Cancel
           </button>
         </div>
       </div>
@@ -196,20 +200,22 @@ export default function ChangelogContentCreator({
           placeholder={manualPlaceholder}
           className="input-field"
         />
-        <div className="flex gap-2">
+        <div className="flex justify-end gap-2">
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              disabled={submitting}
+              className="btn-secondary px-4 py-2"
+            >
+              Cancel
+            </button>
+          )}
           <button
             onClick={handleManualCreate}
             disabled={submitting || !manualContent.trim()}
-            className="btn-primary px-3 py-1.5 disabled:opacity-50"
+            className="btn-primary px-4 py-2 disabled:opacity-50"
           >
             {submitting ? "Creating..." : "Create Draft"}
-          </button>
-          <button
-            onClick={() => { setShowManualForm(false); setManualContent(""); }}
-            disabled={submitting}
-            className="btn-secondary px-3 py-1.5"
-          >
-            Cancel
           </button>
         </div>
       </div>
@@ -225,20 +231,29 @@ export default function ChangelogContentCreator({
       {previewError && (
         <p className="text-red-600 text-sm mb-2">{previewError}</p>
       )}
-      <div className="flex gap-2">
-        <button
-          onClick={handlePreview}
-          disabled={generating || loadingPreview}
-          className="btn-primary px-4 py-2"
-        >
-          {loadingPreview ? "Loading preview..." : generateLabel}
-        </button>
+      <div className="flex justify-end gap-2">
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            disabled={generating || loadingPreview}
+            className="btn-secondary px-4 py-2"
+          >
+            Cancel
+          </button>
+        )}
         <button
           onClick={() => setShowManualForm(true)}
           disabled={generating || loadingPreview}
           className="btn-secondary px-4 py-2"
         >
           Write Manually
+        </button>
+        <button
+          onClick={handlePreview}
+          disabled={generating || loadingPreview}
+          className="btn-primary px-4 py-2"
+        >
+          {loadingPreview ? "Loading preview..." : generateLabel}
         </button>
       </div>
     </div>

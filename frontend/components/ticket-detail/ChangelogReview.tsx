@@ -227,26 +227,16 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
     return (
       <>
         <div className="card">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="section-title">
-              Regenerate Changelog
-            </h2>
-            <button
-              onClick={() => setRegenerating(false)}
-              disabled={actionLoading}
-              className="text-xs text-brand hover:text-brand-dark font-medium"
-            >
-              Back to draft
-            </button>
-          </div>
-          <p className="text-sm text-text-secondary mb-4">
-            Adjust the inputs below and regenerate a new AI draft.
-          </p>
+          <h2 className="section-title mb-3">
+            Regenerate Changelog
+          </h2>
           <ChangelogContentCreator
             onGenerate={handleRegenerate}
             onPreview={() => previewChangelog(ticketId)}
             onManualSubmit={handleManualCreate}
+            onCancel={() => setRegenerating(false)}
             generating={actionLoading}
+            description="Adjust the inputs below and regenerate a new AI draft."
           />
         </div>
         {toastEl}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { TicketGroup } from "../../lib/types";
-import { generateGroupContent } from "../../lib/api";
+import { generateGroupContent, previewGroupContent } from "../../lib/api";
 import ChangelogContentCreator from "../ChangelogContentCreator";
 
 const CHANNELS = ["slack", "intercom", "whatsapp", "email", "in_app"];
@@ -21,10 +21,10 @@ export default function ResolveModal({ group, onConfirm, onClose }: ResolveModal
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string }) => {
     setGenerating(true);
     try {
-      const result = await generateGroupContent(group.id);
+      const result = await generateGroupContent(group.id, options);
       setContent(result.content);
     } finally {
       setGenerating(false);
@@ -57,25 +57,27 @@ export default function ResolveModal({ group, onConfirm, onClose }: ResolveModal
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6">
+      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-semibold text-gray-900 mb-1">Resolve Group</h2>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-text-secondary mb-4">
           Resolving &quot;{group.name}&quot; will resolve all {group.ticket_count} tickets and send one notification.
         </p>
 
         {!content ? (
           <ChangelogContentCreator
             onGenerate={handleGenerate}
+            onPreview={() => previewGroupContent(group.id)}
             onManualSubmit={handleManualSubmit}
+            onCancel={onClose}
             generating={generating}
             description="Create the resolution message to send to users."
             generateLabel="Generate with AI"
             manualPlaceholder="Write the resolution message..."
           />
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-fade-in">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
                 Resolution Content
               </label>
               {editing ? (
@@ -87,29 +89,37 @@ export default function ResolveModal({ group, onConfirm, onClose }: ResolveModal
                     className="input-field"
                   />
                   <div className="flex gap-2">
-                    <button onClick={saveEdit} disabled={!editContent.trim()} className="btn-primary px-3 py-1.5 text-sm disabled:opacity-50">
+                    <button onClick={saveEdit} disabled={!editContent.trim()} className="btn-primary px-3 py-1.5 disabled:opacity-50">
                       Save
                     </button>
-                    <button onClick={() => setEditing(false)} className="btn-secondary px-3 py-1.5 text-sm">
+                    <button onClick={() => setEditing(false)} className="btn-secondary px-3 py-1.5">
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="bg-gray-50 rounded-md p-3 text-sm text-gray-800 whitespace-pre-wrap">
+                <div className="bg-surface-inset rounded-lg p-3 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                   {content}
-                  <button
-                    onClick={startEditing}
-                    className="block mt-2 text-xs text-brand hover:underline"
-                  >
-                    Edit
-                  </button>
+                  <div className="flex gap-3 mt-2">
+                    <button
+                      onClick={startEditing}
+                      className="text-xs text-brand hover:text-brand-dark font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setContent(null)}
+                      className="text-xs text-brand hover:text-brand-dark font-medium"
+                    >
+                      Regenerate
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
                 Notification Channel
               </label>
               <select
@@ -127,13 +137,6 @@ export default function ResolveModal({ group, onConfirm, onClose }: ResolveModal
 
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setContent(null)}
-                disabled={loading}
-                className="btn-secondary px-4 py-2"
-              >
-                Back
-              </button>
-              <button
                 onClick={onClose}
                 disabled={loading}
                 className="btn-secondary px-4 py-2"
@@ -148,17 +151,6 @@ export default function ResolveModal({ group, onConfirm, onClose }: ResolveModal
                 {loading ? "Resolving..." : "Resolve Group"}
               </button>
             </div>
-          </div>
-        )}
-
-        {!content && (
-          <div className="flex justify-end mt-4">
-            <button
-              onClick={onClose}
-              className="btn-secondary px-4 py-2"
-            >
-              Cancel
-            </button>
           </div>
         )}
       </div>
