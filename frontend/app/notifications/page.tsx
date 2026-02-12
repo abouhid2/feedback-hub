@@ -13,7 +13,7 @@ import {
 import PageHeader from "../../components/PageHeader";
 
 const CHANNEL_OPTIONS = ["all", "slack", "intercom", "whatsapp"];
-const STATUS_OPTIONS = ["all", "pending", "sent", "failed", "pending_batch_review"];
+const STATUS_OPTIONS = ["all", "pending", "sent", "failed"];
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);

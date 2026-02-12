@@ -1,5 +1,6 @@
 class Ticket < ApplicationRecord
   belongs_to :reporter, optional: true
+  belongs_to :ticket_group, optional: true
   has_many :ticket_sources, dependent: :destroy
   has_many :ticket_events, dependent: :destroy
   has_many :changelog_entries, dependent: :destroy

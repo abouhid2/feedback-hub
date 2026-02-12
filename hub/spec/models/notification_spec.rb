@@ -11,7 +11,7 @@ RSpec.describe Notification, type: :model do
     it { is_expected.to validate_presence_of(:recipient) }
     it { is_expected.to validate_presence_of(:status) }
     it { is_expected.to validate_inclusion_of(:channel).in_array(%w[email slack in_app intercom whatsapp]) }
-    it { is_expected.to validate_inclusion_of(:status).in_array(%w[pending sent failed pending_batch_review]) }
+    it { is_expected.to validate_inclusion_of(:status).in_array(%w[pending sent failed]) }
     it { is_expected.to validate_numericality_of(:retry_count).is_greater_than_or_equal_to(0) }
   end
 

@@ -56,6 +56,8 @@ export const EVENT_LABELS: Record<string, string> = {
   notification_failed: "Notification failed",
   synced_to_notion: "Synced to Notion",
   ai_triaged: "AI triage completed",
+  ticket_grouped: "Added to group",
+  group_resolved: "Group resolved",
 };
 
 export const EVENT_ICONS: Record<string, string> = {
@@ -72,6 +74,8 @@ export const EVENT_ICONS: Record<string, string> = {
   notification_failed: "\u{1F6A8}",
   synced_to_notion: "\u{1F4D4}",
   ai_triaged: "\u{1F916}",
+  ticket_grouped: "\u{1F4CE}",
+  group_resolved: "\u{2705}",
 };
 
 export const CHANGELOG_STATUS_COLORS: Record<string, string> = {
@@ -90,14 +94,12 @@ export const NOTIFICATION_STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800",
   sent: "bg-green-100 text-green-800",
   failed: "bg-red-100 text-red-800",
-  pending_batch_review: "bg-orange-100 text-orange-800",
 };
 
 export const NOTIFICATION_STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   sent: "Sent",
   failed: "Failed",
-  pending_batch_review: "Batch Hold",
 };
 
 export function timeAgo(dateStr: string): string {

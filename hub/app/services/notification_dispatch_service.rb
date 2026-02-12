@@ -33,17 +33,6 @@ class NotificationDispatchService
     validate_approved!
     recipient = find_recipient!
 
-    if batch_scenario?
-      notification = @ticket.notifications.create!(
-        changelog_entry: @entry,
-        channel: @ticket.original_channel,
-        recipient: recipient,
-        status: "pending_batch_review",
-        content: @entry.content
-      )
-      return notification
-    end
-
     notification = @ticket.notifications.create!(
       changelog_entry: @entry,
       channel: @ticket.original_channel,
@@ -62,12 +51,6 @@ class NotificationDispatchService
   end
 
   private
-
-  def batch_scenario?
-    recent = ChangelogEntry.where(status: "approved")
-      .where("approved_at >= ?", BatchReviewService::BATCH_WINDOW.ago)
-    BatchReviewService.should_batch?(recent)
-  end
 
   def validate_approved!
     raise NotApproved, "Changelog entry must be approved (current: #{@entry.status})" unless @entry.status == "approved"

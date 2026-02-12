@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { TicketDetail } from "../../../lib/types";
-import { fetchTicket } from "../../../lib/api";
+import { TicketDetail, TicketGroup } from "../../../lib/types";
+import { fetchTicket, fetchTicketGroups, addTicketsToGroup, removeTicketFromGroup } from "../../../lib/api";
 import TicketBadges from "../../../components/ticket-detail/TicketBadges";
 import AITriageCard from "../../../components/ticket-detail/AITriageCard";
 import ChangelogReview from "../../../components/ticket-detail/ChangelogReview";
@@ -12,6 +12,7 @@ import TicketTimeline from "../../../components/ticket-detail/TicketTimeline";
 import DataComparison from "../../../components/ticket-detail/DataComparison";
 import SourcesList from "../../../components/ticket-detail/SourcesList";
 import StatusActions from "../../../components/ticket-detail/StatusActions";
+import Toast from "../../../components/Toast";
 
 export default function TicketDetailPage() {
   const params = useParams();
@@ -19,6 +20,9 @@ export default function TicketDetailPage() {
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [openGroups, setOpenGroups] = useState<TicketGroup[]>([]);
+  const [showGroupPicker, setShowGroupPicker] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
 
   const loadTicket = useCallback(async () => {
     try {
@@ -35,6 +39,38 @@ export default function TicketDetailPage() {
   useEffect(() => {
     loadTicket();
   }, [loadTicket]);
+
+  const handleRemoveFromGroup = async () => {
+    if (!ticket?.ticket_group) return;
+    try {
+      await removeTicketFromGroup(ticket.ticket_group.id, ticket.id);
+      setToast({ message: "Removed from group", type: "success" });
+      loadTicket();
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Failed to remove", type: "error" });
+    }
+  };
+
+  const handleAddToGroup = async (groupId: string) => {
+    try {
+      await addTicketsToGroup(groupId, [ticket!.id]);
+      setToast({ message: "Added to group", type: "success" });
+      setShowGroupPicker(false);
+      loadTicket();
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Failed to add", type: "error" });
+    }
+  };
+
+  const handleShowGroupPicker = async () => {
+    try {
+      const groups = await fetchTicketGroups("open");
+      setOpenGroups(groups);
+      setShowGroupPicker(true);
+    } catch {
+      setToast({ message: "Failed to load groups", type: "error" });
+    }
+  };
 
   if (loading) {
     return (
@@ -90,6 +126,61 @@ export default function TicketDetailPage() {
               onStatusChange={loadTicket}
             />
           </div>
+        </div>
+
+        {/* Ticket Group Info */}
+        <div className="card">
+          <h2 className="section-title mb-2">Ticket Group</h2>
+          {ticket.ticket_group ? (
+            <div className="flex items-center gap-3">
+              <Link href="/ticket-groups" className="link-brand font-medium">
+                {ticket.ticket_group.name}
+              </Link>
+              <span className={`badge text-xs ${
+                ticket.ticket_group.status === "open"
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-gray-100 text-gray-600"
+              }`}>
+                {ticket.ticket_group.status}
+              </span>
+              <button
+                onClick={handleRemoveFromGroup}
+                className="btn-secondary text-xs px-2 py-1 ml-auto"
+              >
+                Remove from group
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-400">Not in a group</span>
+              <button
+                onClick={handleShowGroupPicker}
+                className="btn-secondary text-xs px-2 py-1"
+              >
+                Add to Group
+              </button>
+              {showGroupPicker && (
+                <div className="ml-2 flex items-center gap-2">
+                  {openGroups.length === 0 ? (
+                    <span className="text-xs text-gray-400">No open groups</span>
+                  ) : (
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) handleAddToGroup(e.target.value);
+                      }}
+                      className="border border-gray-300 rounded text-xs px-2 py-1"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>Select a group...</option>
+                      {openGroups.map((g) => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Description */}
@@ -152,6 +243,10 @@ export default function TicketDetailPage() {
 
         <DataComparison ticket={ticket} />
       </main>
+
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
     </div>
   );
 }

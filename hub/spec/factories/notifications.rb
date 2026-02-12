@@ -16,9 +16,5 @@ FactoryBot.define do
       last_error { "Connection timeout" }
       retry_count { 1 }
     end
-
-    trait :pending_batch_review do
-      status { "pending_batch_review" }
-    end
   end
 end

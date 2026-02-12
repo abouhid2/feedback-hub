@@ -3,7 +3,7 @@ class Notification < ApplicationRecord
   belongs_to :changelog_entry, optional: true
 
   CHANNELS = %w[email slack in_app intercom whatsapp].freeze
-  STATUSES = %w[pending sent failed pending_batch_review].freeze
+  STATUSES = %w[pending sent failed].freeze
 
   validates :channel, presence: true, inclusion: { in: CHANNELS }
   validates :recipient, presence: true
