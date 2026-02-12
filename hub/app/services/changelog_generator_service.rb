@@ -5,8 +5,8 @@ class ChangelogGeneratorService
   OPENAI_URL = "https://api.openai.com/v1/chat/completions".freeze
   MODEL = "gpt-4o-mini".freeze
 
-  def self.call(ticket, custom_prompt: nil)
-    new(ticket, custom_prompt: custom_prompt).call
+  def self.call(ticket, custom_prompt: nil, custom_system_prompt: nil, resolution_notes: nil, force: false)
+    new(ticket, custom_prompt: custom_prompt, custom_system_prompt: custom_system_prompt, resolution_notes: resolution_notes, force: force).call
   end
 
   def self.generate_for_group(group)
@@ -58,16 +58,23 @@ class ChangelogGeneratorService
   end
   private_class_method :build_group_prompt
 
-  def initialize(ticket, custom_prompt: nil)
+  def initialize(ticket, custom_prompt: nil, custom_system_prompt: nil, resolution_notes: nil, force: false)
     @ticket = ticket
     @custom_prompt = custom_prompt
+    @custom_system_prompt = custom_system_prompt
+    @resolution_notes = resolution_notes
+    @force = force
   end
 
   def call
     validate_ticket_status!
 
-    existing = @ticket.changelog_entries.drafts.first
-    return existing if existing
+    if @force
+      @ticket.changelog_entries.drafts.destroy_all
+    else
+      existing = @ticket.changelog_entries.drafts.first
+      return existing if existing
+    end
 
     raise AiApiError, "OpenAI rate limit cooldown active — try again later" if rate_limited?
 
@@ -134,11 +141,14 @@ class ChangelogGeneratorService
   end
 
   def system_prompt
-    "You are a customer communication specialist. Generate a brief, friendly changelog message for end users about a resolved support ticket. Keep it concise (2-3 sentences), professional, and focused on what was fixed and how it benefits the user. Do not include technical jargon."
+    @custom_system_prompt.presence || ChangelogPrompts::DEFAULT_SYSTEM_PROMPT
   end
 
   def user_prompt
-    PiiScrubberService.scrub(ticket_text)[:scrubbed]
+    scrubbed = PiiScrubberService.scrub(ticket_text)[:scrubbed]
+    return scrubbed if @resolution_notes.blank?
+
+    "#{scrubbed}\n\nDeveloper resolution notes:\n#{@resolution_notes}"
   end
 
   def ticket_text

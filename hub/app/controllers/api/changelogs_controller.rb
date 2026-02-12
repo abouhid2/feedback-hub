@@ -10,7 +10,13 @@ module Api
     end
 
     def create
-      entry = ChangelogGeneratorService.call(@ticket, custom_prompt: params[:prompt])
+      entry = ChangelogGeneratorService.call(
+        @ticket,
+        custom_prompt: params[:prompt],
+        custom_system_prompt: params[:system_prompt],
+        resolution_notes: params[:resolution_notes],
+        force: ActiveModel::Type::Boolean.new.cast(params[:force])
+      )
       render json: serialize_entry(entry), status: :created
     rescue ChangelogGeneratorService::InvalidTicketStatus => e
       render json: { error: e.message }, status: :unprocessable_entity
@@ -63,7 +69,8 @@ module Api
       render json: {
         original: ticket_text,
         scrubbed: result[:scrubbed],
-        redactions: result[:redactions].map { |r| { type: r[:type], original: r[:original] } }
+        redactions: result[:redactions].map { |r| { type: r[:type], original: r[:original] } },
+        system_prompt: ChangelogPrompts::DEFAULT_SYSTEM_PROMPT
       }
     end
 

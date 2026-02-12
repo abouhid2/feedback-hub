@@ -81,14 +81,24 @@ export interface ChangelogPreview {
   original: string;
   scrubbed: string;
   redactions: { type: string; original: string }[];
+  system_prompt: string;
 }
 
 export function previewChangelog(ticketId: string): Promise<ChangelogPreview> {
   return request<ChangelogPreview>(`/api/tickets/${ticketId}/preview_changelog`);
 }
 
-export function generateChangelog(ticketId: string, customPrompt?: string): Promise<ChangelogEntry> {
-  return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/generate_changelog`, "POST", customPrompt ? { prompt: customPrompt } : undefined);
+export function generateChangelog(
+  ticketId: string,
+  options?: { prompt?: string; systemPrompt?: string; resolutionNotes?: string; force?: boolean }
+): Promise<ChangelogEntry> {
+  if (!options) return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/generate_changelog`, "POST");
+  const body: Record<string, unknown> = {};
+  if (options.prompt) body.prompt = options.prompt;
+  if (options.systemPrompt) body.system_prompt = options.systemPrompt;
+  if (options.resolutionNotes) body.resolution_notes = options.resolutionNotes;
+  if (options.force) body.force = true;
+  return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/generate_changelog`, "POST", Object.keys(body).length > 0 ? body : undefined);
 }
 
 export function approveChangelog(ticketId: string, approvedBy: string): Promise<ChangelogEntry> {

@@ -3,8 +3,14 @@
 import { useState } from "react";
 import { ChangelogPreview } from "../lib/api";
 
+interface GenerateOptions {
+  prompt?: string;
+  systemPrompt?: string;
+  resolutionNotes?: string;
+}
+
 interface ChangelogContentCreatorProps {
-  onGenerate: (customPrompt?: string) => Promise<void>;
+  onGenerate: (options?: GenerateOptions) => Promise<void>;
   onManualSubmit: (content: string) => Promise<void>;
   onPreview?: () => Promise<ChangelogPreview>;
   generating: boolean;
@@ -29,6 +35,9 @@ export default function ChangelogContentCreator({
   const [editedPrompt, setEditedPrompt] = useState("");
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [resolutionNotes, setResolutionNotes] = useState("");
+  const [editedSystemPrompt, setEditedSystemPrompt] = useState("");
+  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
 
   const handlePreview = async () => {
     if (!onPreview) {
@@ -41,6 +50,7 @@ export default function ChangelogContentCreator({
       const data = await onPreview();
       setPreview(data);
       setEditedPrompt(data.scrubbed);
+      setEditedSystemPrompt(data.system_prompt);
     } catch (e) {
       setPreviewError(e instanceof Error ? e.message : "Failed to load preview");
     } finally {
@@ -49,7 +59,11 @@ export default function ChangelogContentCreator({
   };
 
   const handleConfirmGenerate = async () => {
-    await onGenerate(editedPrompt);
+    await onGenerate({
+      prompt: editedPrompt,
+      systemPrompt: editedSystemPrompt,
+      resolutionNotes: resolutionNotes || undefined,
+    });
     setPreview(null);
   };
 
@@ -69,20 +83,31 @@ export default function ChangelogContentCreator({
   if (preview) {
     const hasRedactions = preview.redactions.length > 0;
     return (
-      <div className="space-y-3">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          AI prompt preview
-        </p>
+      <div className="space-y-4 animate-fade-in">
+        {/* Resolution notes */}
+        <div>
+          <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
+            Resolution notes
+          </label>
+          <textarea
+            value={resolutionNotes}
+            onChange={(e) => setResolutionNotes(e.target.value)}
+            rows={3}
+            placeholder="Explain what was done to fix this issue. Include PR links, technical context — the AI will translate this into a customer-friendly message."
+            className="input-field font-mono text-xs leading-relaxed"
+          />
+        </div>
 
+        {/* Redactions warning */}
         {hasRedactions && (
-          <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-            <p className="text-xs font-medium text-amber-800 mb-1">
-              {preview.redactions.length} sensitive item(s) will be redacted before sending to AI:
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+            <p className="text-xs font-semibold text-amber-800 mb-1">
+              {preview.redactions.length} sensitive item(s) redacted:
             </p>
             <ul className="text-xs text-amber-700 space-y-0.5">
               {preview.redactions.map((r, i) => (
                 <li key={i} className="font-mono">
-                  <span className="font-semibold">[{r.type.toUpperCase()}]</span>{" "}
+                  <span className="font-bold">[{r.type.toUpperCase()}]</span>{" "}
                   <span className="line-through text-red-600">{r.original}</span>
                 </li>
               ))}
@@ -90,19 +115,57 @@ export default function ChangelogContentCreator({
           </div>
         )}
 
-        <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
-          <p className="text-xs font-medium text-gray-500 mb-1">
-            {hasRedactions ? "Scrubbed text (sent to OpenAI):" : "Text sent to OpenAI:"}
-          </p>
+        {/* Scrubbed ticket text */}
+        <div>
+          <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
+            {hasRedactions ? "Scrubbed ticket text" : "Ticket text"}
+          </label>
           <textarea
             value={editedPrompt}
             onChange={(e) => setEditedPrompt(e.target.value)}
-            rows={6}
-            className="w-full text-sm text-gray-800 font-mono leading-relaxed bg-white border border-gray-300 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-brand focus:border-transparent resize-y"
+            rows={5}
+            className="input-field font-mono text-xs leading-relaxed"
           />
+          <p className="text-xs text-text-muted mt-1">
+            This is what will be sent to OpenAI. You can edit it before generating.
+          </p>
         </div>
 
-        <div className="flex gap-2">
+        {/* Collapsible system prompt */}
+        <div className="border border-border rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowSystemPrompt(!showSystemPrompt)}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-text-secondary uppercase tracking-wide hover:bg-surface-inset transition-colors"
+          >
+            <span>AI instructions (system prompt)</span>
+            <svg
+              className={`w-4 h-4 text-text-muted transition-transform ${showSystemPrompt ? "rotate-180" : ""}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {showSystemPrompt && (
+            <div className="px-3 pb-3 animate-fade-in">
+              <textarea
+                value={editedSystemPrompt}
+                onChange={(e) => setEditedSystemPrompt(e.target.value)}
+                rows={8}
+                className="input-field font-mono text-xs leading-relaxed"
+              />
+              <p className="text-xs text-text-muted mt-1">
+                Controls the AI&apos;s tone, structure, and behaviour.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 pt-1">
           <button
             onClick={handleConfirmGenerate}
             disabled={generating}
@@ -125,7 +188,7 @@ export default function ChangelogContentCreator({
   // Manual form state
   if (showManualForm) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3 animate-fade-in">
         <textarea
           value={manualContent}
           onChange={(e) => setManualContent(e.target.value)}
@@ -157,7 +220,7 @@ export default function ChangelogContentCreator({
   return (
     <div>
       {description && (
-        <p className="text-sm text-gray-600 mb-3">{description}</p>
+        <p className="text-sm text-text-secondary mb-3">{description}</p>
       )}
       {previewError && (
         <p className="text-red-600 text-sm mb-2">{previewError}</p>
