@@ -1,8 +1,8 @@
 class AiTriageService
   class AiApiError < StandardError; end
 
-  OPENAI_URL = "https://api.openai.com/v1/chat/completions".freeze
-  MODEL = "gpt-4o-mini".freeze
+  OPENAI_URL = AiConstants::OPENAI_CHAT_URL
+  MODEL = AiConstants::TRIAGE_MODEL
 
   def self.call(ticket)
     new(ticket).call
@@ -93,7 +93,7 @@ class AiTriageService
   end
 
   def system_prompt
-    "You are an AI triage assistant. Analyze support tickets and return JSON with: suggested_type (bug/feature_request/question/incident), suggested_priority (0-5, where 0 is critical), and summary (one clean sentence). Return ONLY valid JSON."
+    AiConstants::TRIAGE_SYSTEM_PROMPT
   end
 
   def user_prompt

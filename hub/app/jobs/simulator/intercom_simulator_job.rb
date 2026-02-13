@@ -22,11 +22,13 @@ module Simulator
       "Rappi", "Cornershop", "Falabella Tech", "Banco Estado",
     ].freeze
 
-    def perform
-      name = Faker::Name.first_name
+    PII_TEXT = AiConstants::PII_TEXT
+
+    def perform(include_pii: false)
+      name = include_pii ? "Maria Garcia" : Faker::Name.first_name
       company = COMPANIES.sample
-      email = "#{name.downcase}@#{company.downcase.gsub(' ', '-')}.com"
-      message = INTERCOM_MESSAGES.sample
+      email = include_pii ? "maria.garcia@company.com" : "#{name.downcase}@#{company.downcase.gsub(' ', '-')}.com"
+      message = include_pii ? PII_TEXT : INTERCOM_MESSAGES.sample
 
       payload = {
         type: "notification_event",

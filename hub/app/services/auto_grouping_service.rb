@@ -1,7 +1,7 @@
 class AutoGroupingService
-  SIMILARITY_THRESHOLD = 0.82
-  LOOKBACK_HOURS = 24
-  MAX_CANDIDATES = 200
+  SIMILARITY_THRESHOLD = AiConstants::SIMILARITY_THRESHOLD
+  LOOKBACK_HOURS = AiConstants::GROUPING_LOOKBACK_HOURS
+  MAX_CANDIDATES = AiConstants::GROUPING_MAX_CANDIDATES
 
   def self.call(ticket)
     new(ticket).call

@@ -201,6 +201,46 @@ RSpec.describe "Api::TicketGroups", type: :request do
     end
   end
 
+  describe "POST /api/ticket_groups/simulate_ticket" do
+    before do
+      stub_request(:post, "http://localhost:3000/webhooks/slack")
+        .to_return(status: 200, body: '{"status":"ok"}')
+      stub_request(:post, "http://localhost:3000/webhooks/intercom")
+        .to_return(status: 200, body: '{"status":"ok"}')
+      stub_request(:post, "http://localhost:3000/webhooks/whatsapp")
+        .to_return(status: 200, body: '{"status":"ok"}')
+    end
+
+    it "simulates a slack ticket" do
+      post "/api/ticket_groups/simulate_ticket", params: { channel: "slack" }
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["channel"]).to eq("slack")
+      expect(WebMock).to have_requested(:post, "http://localhost:3000/webhooks/slack").once
+    end
+
+    it "simulates an intercom ticket" do
+      post "/api/ticket_groups/simulate_ticket", params: { channel: "intercom" }
+
+      expect(response).to have_http_status(:ok)
+      expect(WebMock).to have_requested(:post, "http://localhost:3000/webhooks/intercom").once
+    end
+
+    it "simulates a whatsapp ticket" do
+      post "/api/ticket_groups/simulate_ticket", params: { channel: "whatsapp" }
+
+      expect(response).to have_http_status(:ok)
+      expect(WebMock).to have_requested(:post, "http://localhost:3000/webhooks/whatsapp").once
+    end
+
+    it "returns 422 for unknown channel" do
+      post "/api/ticket_groups/simulate_ticket", params: { channel: "email" }
+
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+  end
+
   describe "POST /api/ticket_groups/:id/resolve" do
     let!(:entry1) { create(:changelog_entry, :approved, ticket: ticket1) }
     let!(:entry2) { create(:changelog_entry, :approved, ticket: ticket2) }

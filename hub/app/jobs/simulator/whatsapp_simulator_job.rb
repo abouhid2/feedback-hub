@@ -22,11 +22,13 @@ module Simulator
       "Diego Fernández", "Valentina Rojas", "Andrés Silva", "Camila Torres",
     ].freeze
 
-    def perform
-      name = NAMES.sample
-      phone = "56#{rand(9_000_000_0..9_999_999_9)}"
+    PII_TEXT = AiConstants::PII_TEXT
+
+    def perform(include_pii: false)
+      name = include_pii ? "Maria Garcia" : NAMES.sample
+      phone = include_pii ? "56987654321" : "56#{rand(9_000_000_0..9_999_999_9)}"
       message_id = "wamid.#{SecureRandom.hex(16)}"
-      message = WHATSAPP_MESSAGES.sample
+      message = include_pii ? PII_TEXT : WHATSAPP_MESSAGES.sample
 
       payload = {
         object: "whatsapp_business_account",

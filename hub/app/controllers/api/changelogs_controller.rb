@@ -71,7 +71,7 @@ module Api
         original: ticket_text,
         scrubbed: result[:scrubbed],
         redactions: result[:redactions].map { |r| { type: r[:type], original: r[:original] } },
-        system_prompt: ChangelogPrompts::DEFAULT_SYSTEM_PROMPT
+        system_prompt: AiConstants::CHANGELOG_SYSTEM_PROMPT
       }
     end
 

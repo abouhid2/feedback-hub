@@ -1,8 +1,8 @@
 class AiEmbeddingService
   class AiApiError < StandardError; end
 
-  OPENAI_URL = "https://api.openai.com/v1/embeddings".freeze
-  MODEL = "text-embedding-3-small".freeze
+  OPENAI_URL = AiConstants::OPENAI_EMBEDDINGS_URL
+  MODEL = AiConstants::EMBEDDING_MODEL
 
   def self.call(ticket)
     new(ticket).call

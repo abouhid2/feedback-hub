@@ -1,12 +1,10 @@
 class AiGroupingSuggestionService
   class AiApiError < StandardError; end
 
-  OPENAI_URL = "https://api.openai.com/v1/chat/completions".freeze
-  MODEL = "gpt-4o-mini".freeze
-
-  SYSTEM_PROMPT = <<~PROMPT.freeze
-    Analyze these support tickets and identify groups of tickets that describe the same underlying issue. Some tickets may already belong to a group (marked with [GROUP: name]). You can suggest adding ungrouped tickets to existing groups. Return ONLY valid JSON: { "groups": [...] } where each group has: name (short label), reason (why grouped), ticket_ids (array of ticket id strings). Only include groups with 2+ tickets. Omit tickets that don't match any group.
-  PROMPT
+  OPENAI_URL = AiConstants::OPENAI_CHAT_URL
+  MODEL = AiConstants::GROUPING_MODEL
+  SYSTEM_PROMPT = AiConstants::GROUPING_SYSTEM_PROMPT
+  MAX_TICKETS_FOR_AI = AiConstants::GROUPING_MAX_TICKETS_FOR_AI
 
   def self.call(hours_ago: 4)
     new(hours_ago: hours_ago).call
@@ -15,8 +13,6 @@ class AiGroupingSuggestionService
   def initialize(hours_ago:)
     @hours_ago = hours_ago
   end
-
-  MAX_TICKETS_FOR_AI = 50
 
   def call
     all_tickets = Ticket.includes(:reporter, :ticket_group)

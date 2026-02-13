@@ -20,10 +20,13 @@ module Simulator
       "Reporte de pipeline muestra datos incorrectos",
     ].freeze
 
-    def perform
-      user_name = Faker::Internet.username(specifier: 5..12)
+    PII_TEXT = AiConstants::PII_TEXT
+
+    def perform(include_pii: false)
+      user_name = include_pii ? "maria.garcia" : Faker::Internet.username(specifier: 5..12)
       agency = AGENCIES.sample
       channel = CHANNELS.sample
+      text = include_pii ? PII_TEXT : SPANISH_BUGS.sample
 
       payload = {
         token: "xoxb-#{SecureRandom.hex(12)}",
@@ -34,17 +37,17 @@ module Simulator
         user_id: "U_#{user_name.upcase}",
         user_name: user_name,
         command: "/bug",
-        text: SPANISH_BUGS.sample,
+        text: text,
         trigger_id: "#{rand(100..999)}.#{rand(100..999)}.#{SecureRandom.hex(6)}",
         response_url: "https://hooks.slack.com/commands/#{SecureRandom.hex(6)}",
         payload: {
           issue_id: "ReCoACFaKAP#{SecureRandom.hex(4).upcase}",
           reporter: user_name,
           priority: %w[critica alta media baja].sample,
-          incident: SPANISH_BUGS.sample,
+          incident: text,
           agency: agency,
           job_id: "https://feedback-hub.example.com/positions/#{SecureRandom.hex(6)}",
-          additional_details: Faker::Lorem.sentence(word_count: 8)
+          additional_details: include_pii ? AiConstants::PII_ADDITIONAL_DETAILS : Faker::Lorem.sentence(word_count: 8)
         }
       }
 

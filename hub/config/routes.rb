@@ -28,6 +28,7 @@ Rails.application.routes.draw do
       collection do
         post :suggest
         post :simulate_incident
+        post :simulate_ticket
       end
       member do
         post :add_tickets

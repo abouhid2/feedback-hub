@@ -2,9 +2,9 @@ class ChangelogGeneratorService
   class InvalidTicketStatus < StandardError; end
   class AiApiError < StandardError; end
 
-  OPENAI_URL = "https://api.openai.com/v1/chat/completions".freeze
-  DEFAULT_MODEL = "gpt-5.1".freeze
-  AVAILABLE_MODELS = %w[gpt-5.1 gpt-4.1 gpt-4o-mini o3-mini].freeze
+  OPENAI_URL = AiConstants::OPENAI_CHAT_URL
+  DEFAULT_MODEL = AiConstants::DEFAULT_CHAT_MODEL
+  AVAILABLE_MODELS = AiConstants::AVAILABLE_CHAT_MODELS
 
   def self.call(ticket, custom_prompt: nil, custom_system_prompt: nil, resolution_notes: nil, force: false, model: nil)
     new(ticket, custom_prompt: custom_prompt, custom_system_prompt: custom_system_prompt, resolution_notes: resolution_notes, force: force, model: model).call
@@ -21,7 +21,7 @@ class ChangelogGeneratorService
 
     user_message = custom_prompt || scrubbed
     user_message = "#{user_message}\n\nDeveloper resolution notes:\n#{resolution_notes}" if resolution_notes.present? && custom_prompt.blank?
-    system_message = custom_system_prompt.presence || ChangelogPrompts::DEFAULT_GROUP_SYSTEM_PROMPT
+    system_message = custom_system_prompt.presence || AiConstants::CHANGELOG_GROUP_SYSTEM_PROMPT
 
     uri = URI(OPENAI_URL)
     http = Net::HTTP.new(uri.host, uri.port)
@@ -148,7 +148,7 @@ class ChangelogGeneratorService
   end
 
   def system_prompt
-    @custom_system_prompt.presence || ChangelogPrompts::DEFAULT_SYSTEM_PROMPT
+    @custom_system_prompt.presence || AiConstants::CHANGELOG_SYSTEM_PROMPT
   end
 
   def user_prompt

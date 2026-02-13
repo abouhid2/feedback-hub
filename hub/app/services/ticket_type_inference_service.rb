@@ -1,6 +1,6 @@
 class TicketTypeInferenceService
-  OPENAI_URL = "https://api.openai.com/v1/chat/completions".freeze
-  MODEL = "gpt-4o-mini".freeze
+  OPENAI_URL = AiConstants::OPENAI_CHAT_URL
+  MODEL = AiConstants::TRIAGE_MODEL
 
   def self.infer(text)
     new(text).infer

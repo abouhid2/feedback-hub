@@ -87,7 +87,7 @@ module Api
         original: ticket_text,
         scrubbed: result[:scrubbed],
         redactions: result[:redactions].map { |r| { type: r[:type], original: r[:original] } },
-        system_prompt: ChangelogPrompts::DEFAULT_GROUP_SYSTEM_PROMPT
+        system_prompt: AiConstants::CHANGELOG_GROUP_SYSTEM_PROMPT
       }
     rescue ActiveRecord::RecordNotFound
       render json: { error: "Ticket group not found" }, status: :not_found
@@ -104,6 +104,23 @@ module Api
     def simulate_incident
       Simulator::IncidentSimulatorJob.new.perform
       render json: { message: "Incident simulation complete", ticket_count: 8 }
+    end
+
+    def simulate_ticket
+      channel = params[:channel]
+      job_class = {
+        "slack" => Simulator::SlackSimulatorJob,
+        "intercom" => Simulator::IntercomSimulatorJob,
+        "whatsapp" => Simulator::WhatsappSimulatorJob
+      }[channel]
+
+      unless job_class
+        return render json: { error: "Unknown channel: #{channel}" }, status: :unprocessable_entity
+      end
+
+      include_pii = ActiveModel::Type::Boolean.new.cast(params[:include_pii])
+      job_class.new.perform(include_pii: include_pii)
+      render json: { message: "#{channel.capitalize} ticket simulated", channel: channel }
     end
 
     private
