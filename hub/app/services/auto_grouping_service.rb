@@ -76,8 +76,7 @@ class AutoGroupingService
   def generate_group_name(tickets)
     # Use the shortest title as a base for the group name
     shortest = tickets.min_by { |t| t.title.length }
-    title = shortest.title.truncate(50)
-    "Auto: #{title}"
+    shortest.title.truncate(50)
   end
 
   def cosine_similarity(vec_a, vec_b)

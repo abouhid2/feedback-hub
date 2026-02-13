@@ -198,15 +198,13 @@ export default function ChangelogContentCreator({
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-1">
-          {onCancel && (
-            <button
-              onClick={onCancel}
-              disabled={generating}
-              className="btn-secondary px-4 py-2"
-            >
-              Cancel
-            </button>
-          )}
+          <button
+            onClick={() => { setPreview(null); setPreviewError(null); }}
+            disabled={generating}
+            className="btn-secondary px-4 py-2"
+          >
+            Back
+          </button>
           <button
             onClick={handleConfirmGenerate}
             disabled={generating}
@@ -231,15 +229,13 @@ export default function ChangelogContentCreator({
           className="input-field"
         />
         <div className="flex justify-end gap-2">
-          {onCancel && (
-            <button
-              onClick={onCancel}
-              disabled={submitting}
-              className="btn-secondary px-4 py-2"
-            >
-              Cancel
-            </button>
-          )}
+          <button
+            onClick={() => setShowManualForm(false)}
+            disabled={submitting}
+            className="btn-secondary px-4 py-2"
+          >
+            Back
+          </button>
           <button
             onClick={handleManualCreate}
             disabled={submitting || !manualContent.trim()}

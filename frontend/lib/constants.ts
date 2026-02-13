@@ -8,12 +8,12 @@ export const PRIORITY_COLORS: Record<number, string> = {
 };
 
 export const PRIORITY_LABELS: Record<number, string> = {
-  0: "P0 Critical",
-  1: "P1 High",
-  2: "P2 Medium",
-  3: "P3 Normal",
-  4: "P4 Low",
-  5: "P5 Trivial",
+  0: "P0",
+  1: "P1",
+  2: "P2",
+  3: "P3",
+  4: "P4",
+  5: "P5",
 };
 
 export const CHANNEL_ICONS: Record<string, string> = {
@@ -57,6 +57,7 @@ export const EVENT_LABELS: Record<string, string> = {
   synced_to_notion: "Synced to Notion",
   ai_triaged: "AI triage completed",
   ticket_grouped: "Added to group",
+  ticket_ungrouped: "Removed from group",
   group_resolved: "Group resolved",
   pii_redacted: "PII redacted before AI",
 };
@@ -76,6 +77,7 @@ export const EVENT_ICONS: Record<string, string> = {
   synced_to_notion: "\u{1F4D4}",
   ai_triaged: "\u{1F916}",
   ticket_grouped: "\u{1F4CE}",
+  ticket_ungrouped: "\u{1F4E4}",
   group_resolved: "\u{2705}",
   pii_redacted: "\u{1F6E1}\u{FE0F}",
 };

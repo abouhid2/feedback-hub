@@ -41,16 +41,6 @@ module Api
       render json: { error: e.message }, status: :unprocessable_entity
     end
 
-    def reject
-      entry = @ticket.changelog_entries.order(created_at: :desc).first
-      return render json: { error: "No changelog entry found" }, status: :not_found unless entry
-
-      result = ChangelogReviewService.reject(entry, rejected_by: params[:rejected_by], reason: params[:reason])
-      render json: serialize_entry(result)
-    rescue ChangelogReviewService::InvalidTransition => e
-      render json: { error: e.message }, status: :unprocessable_entity
-    end
-
     def update_draft
       entry = @ticket.changelog_entries.order(created_at: :desc).first
       return render json: { error: "No changelog entry found" }, status: :not_found unless entry

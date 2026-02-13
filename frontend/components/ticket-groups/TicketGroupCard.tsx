@@ -29,7 +29,7 @@ export default function TicketGroupCard({ group, highlight, onResolve }: TicketG
   }, [highlight]);
 
   return (
-    <div ref={cardRef} className={`card mb-4${highlight ? " ring-2 ring-brand ring-offset-2" : ""}`}>
+    <div ref={cardRef} className={`card mb-3${highlight ? " ring-2 ring-brand ring-offset-2" : ""}`}>
       <div className="flex items-start justify-between mb-3">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">{group.name}</h3>
@@ -88,10 +88,8 @@ export default function TicketGroupCard({ group, highlight, onResolve }: TicketG
               <thead>
                 <tr className="text-xs text-gray-500 uppercase">
                   <th className="text-left py-1 px-2">Title</th>
-                  <th className="text-left py-1 px-2">Channel</th>
                   <th className="text-left py-1 px-2">Priority</th>
                   <th className="text-left py-1 px-2">Status</th>
-                  <th className="text-left py-1 px-2">Privacy</th>
                 </tr>
               </thead>
               <tbody>
@@ -104,11 +102,19 @@ export default function TicketGroupCard({ group, highlight, onResolve }: TicketG
                         )}
                         {ticket.title}
                       </Link>
-                    </td>
-                    <td className="py-2 px-2">
-                      <span className={`badge-channel text-xs ${CHANNEL_COLORS[ticket.original_channel] || ""}`}>
+                      <span className={`badge-channel text-xs ml-1.5 ${CHANNEL_COLORS[ticket.original_channel] || ""}`}>
                         {CHANNEL_ICONS[ticket.original_channel]} {ticket.original_channel}
                       </span>
+                      {ticket.pii_redacted_types && ticket.pii_redacted_types.length > 0 && (
+                        <span
+                          className="inline-flex ml-1.5"
+                          title={`PII redacted before AI: ${ticket.pii_redacted_types.map(t => PII_LABELS[t] || t).join(", ")}`}
+                        >
+                          <svg className="w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                          </svg>
+                        </span>
+                      )}
                     </td>
                     <td className="py-2 px-2">
                       <span className={`badge-priority text-xs ${PRIORITY_COLORS[ticket.priority] || "bg-gray-200"}`}>
@@ -116,19 +122,6 @@ export default function TicketGroupCard({ group, highlight, onResolve }: TicketG
                       </span>
                     </td>
                     <td className="py-2 px-2 text-sm text-gray-500">{ticket.status}</td>
-                    <td className="py-2 px-2">
-                      {ticket.pii_redacted_types && ticket.pii_redacted_types.length > 0 && (
-                        <span
-                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200"
-                          title={`Redacted before AI: ${ticket.pii_redacted_types.map(t => PII_LABELS[t] || t).join(", ")}`}
-                        >
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-                          </svg>
-                          PII scrubbed
-                        </span>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>

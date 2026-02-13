@@ -12,9 +12,9 @@ import CreateGroupModal from "../components/ticket-groups/CreateGroupModal";
 import Toast from "../components/Toast";
 
 const CHANNELS = [
-  { key: "slack" as const, label: "Slack", cls: "simulate-btn-slack" },
-  { key: "intercom" as const, label: "Intercom", cls: "simulate-btn-intercom" },
-  { key: "whatsapp" as const, label: "WhatsApp", cls: "simulate-btn-whatsapp" },
+  { key: "slack" as const, label: "Slack", cls: "simulate-btn-slack", tooltip: "Simulate a customer message arriving via Slack" },
+  { key: "intercom" as const, label: "Intercom", cls: "simulate-btn-intercom", tooltip: "Simulate a customer message arriving via Intercom" },
+  { key: "whatsapp" as const, label: "WhatsApp", cls: "simulate-btn-whatsapp", tooltip: "Simulate a customer message arriving via WhatsApp" },
 ];
 
 interface Filters {
@@ -150,11 +150,15 @@ export default function Dashboard() {
               onClick={() => handleSimulateTicket(ch.key)}
               disabled={simulating !== null}
               className={`${ch.cls} text-xs px-3 py-1`}
+              title={ch.tooltip}
             >
               {simulating === ch.key ? "..." : ch.label}
             </button>
           ))}
-          <label className="inline-flex items-center gap-1.5 ml-1 cursor-pointer select-none">
+          <label
+            className="inline-flex items-center gap-1.5 ml-1 cursor-pointer select-none"
+            title="Include fake PII (emails, phones) in simulated messages to test scrubbing"
+          >
             <input
               type="checkbox"
               checked={includePii}

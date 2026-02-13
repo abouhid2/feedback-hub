@@ -106,10 +106,6 @@ export function approveChangelog(ticketId: string, approvedBy: string): Promise<
   return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/approve_changelog`, "PATCH", { approved_by: approvedBy });
 }
 
-export function rejectChangelog(ticketId: string, rejectedBy: string, reason: string): Promise<ChangelogEntry> {
-  return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/reject_changelog`, "PATCH", { rejected_by: rejectedBy, reason });
-}
-
 export function updateChangelogDraft(ticketId: string, content: string): Promise<ChangelogEntry> {
   return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/update_changelog_draft`, "PATCH", { content });
 }

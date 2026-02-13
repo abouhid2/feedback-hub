@@ -52,13 +52,14 @@ export default function StatusActions({ ticketId, currentStatus, onStatusChange 
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-gray-500">Simulate Notion Actions:</span>
+        <span className="text-xs font-medium text-gray-500">Simulate Notion Status:</span>
         {transitions.map((t) => (
           <button
             key={t.status}
             onClick={() => handleTransition(t.status)}
             disabled={loading !== null}
             className="btn-secondary px-3 py-1.5 disabled:opacity-50"
+            title={`Simulate Notion changing this ticket to ${t.status} — triggers the webhook pipeline`}
           >
             {loading === t.status ? "Updating..." : t.label}
           </button>

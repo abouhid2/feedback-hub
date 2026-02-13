@@ -35,26 +35,6 @@ RSpec.describe ChangelogReviewService, type: :service do
     end
   end
 
-  describe ".reject" do
-    it "sets status to rejected" do
-      result = described_class.reject(entry, rejected_by: "admin@example.com", reason: "Too technical")
-      expect(result.status).to eq("rejected")
-    end
-
-    it "creates a changelog_rejected ticket event with reason" do
-      described_class.reject(entry, rejected_by: "admin@example.com", reason: "Too technical")
-      event = ticket.ticket_events.where(event_type: "changelog_rejected").last
-      expect(event.data["reason"]).to eq("Too technical")
-      expect(event.data["rejected_by"]).to eq("admin@example.com")
-    end
-
-    it "raises InvalidTransition if entry is not draft" do
-      rejected_entry = create(:changelog_entry, :rejected, ticket: ticket)
-      expect { described_class.reject(rejected_entry, rejected_by: "admin@example.com", reason: "N/A") }
-        .to raise_error(ChangelogReviewService::InvalidTransition)
-    end
-  end
-
   describe ".update_draft" do
     it "updates content of a draft entry" do
       result = described_class.update_draft(entry, new_content: "Updated message for the user.")

@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { TicketEvent } from "../../lib/types";
 import { EVENT_LABELS, EVENT_ICONS, timeAgo } from "../../lib/constants";
 
@@ -6,6 +9,7 @@ interface TicketTimelineProps {
 }
 
 export default function TicketTimeline({ events }: TicketTimelineProps) {
+  const [expanded, setExpanded] = useState(false);
   const sortedEvents = [...events].sort(
     (a, b) =>
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -13,18 +17,35 @@ export default function TicketTimeline({ events }: TicketTimelineProps) {
 
   return (
     <div className="card">
-      <h2 className="section-title mb-4">
-        Timeline
-      </h2>
-      <div className="space-y-4">
-        {sortedEvents.map((event, i) => (
-          <TimelineEvent
-            key={i}
-            event={event}
-            isLast={i === sortedEvents.length - 1}
-          />
-        ))}
-      </div>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 w-full text-left"
+      >
+        <svg
+          className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? "rotate-90" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+        </svg>
+        <h2 className="section-title">
+          Timeline
+        </h2>
+        <span className="text-xs text-gray-400 ml-1">{events.length} event{events.length !== 1 ? "s" : ""}</span>
+      </button>
+      {expanded && (
+        <div className="space-y-4 mt-4">
+          {sortedEvents.map((event, i) => (
+            <TimelineEvent
+              key={i}
+              event={event}
+              isLast={i === sortedEvents.length - 1}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -67,6 +88,16 @@ function EventData({
     return (
       <p className="text-xs text-gray-500 mt-1">
         {String(data.old_status)} &rarr; {String(data.new_status)}
+      </p>
+    );
+  }
+
+  if (eventType === "ticket_ungrouped") {
+    const groupName = typeof data.group_name === "string" ? data.group_name : "a group";
+    const reason = typeof data.reason === "string" ? data.reason : null;
+    return (
+      <p className="text-xs text-gray-500 mt-1">
+        Removed from &ldquo;{groupName}&rdquo;{reason === "group_dissolved" ? " (group dissolved)" : ""}
       </p>
     );
   }

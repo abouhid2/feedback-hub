@@ -24,6 +24,7 @@ export default function SuggestFilterModal({ onConfirm, onClose }: SuggestFilter
   const [limit, setLimit] = useState(50);
   const [startTime, setStartTime] = useState(() => toLocalDatetime(new Date(Date.now() - 30 * 60 * 1000)));
   const [endTime, setEndTime] = useState(() => toLocalDatetime(new Date()));
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleSubmit = () => {
     onConfirm({
@@ -43,6 +44,21 @@ export default function SuggestFilterModal({ onConfirm, onClose }: SuggestFilter
         </p>
 
         <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
+              Ticket Count
+            </label>
+            <input
+              type="number"
+              min={2}
+              max={50}
+              value={limit}
+              onChange={(e) => setLimit(Math.max(2, Math.min(50, Number(e.target.value) || 2)))}
+              className="input-field w-24"
+            />
+            <p className="text-xs text-gray-400 mt-1">Max 50 per analysis</p>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
               Order
@@ -69,49 +85,45 @@ export default function SuggestFilterModal({ onConfirm, onClose }: SuggestFilter
                 Last
               </button>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {order === "last" ? "Newest tickets first" : "Oldest tickets first"}
-            </p>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
-              Ticket Count
-            </label>
-            <input
-              type="number"
-              min={2}
-              max={50}
-              value={limit}
-              onChange={(e) => setLimit(Math.max(2, Math.min(50, Number(e.target.value) || 2)))}
-              className="input-field w-24"
-            />
-            <p className="text-xs text-gray-400 mt-1">Max 50 tickets per analysis</p>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="text-sm text-brand hover:text-brand/80 font-medium"
+            >
+              {showAdvanced ? "Hide advanced filters" : "Advanced filters"}
+            </button>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
-              Start Time
-            </label>
-            <input
-              type="datetime-local"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="input-field w-full"
-            />
-          </div>
+          {showAdvanced && (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
+                  Start Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="input-field w-full"
+                />
+              </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
-              End Time
-            </label>
-            <input
-              type="datetime-local"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="input-field w-full"
-            />
-          </div>
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1.5">
+                  End Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="input-field w-full"
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 pt-5">

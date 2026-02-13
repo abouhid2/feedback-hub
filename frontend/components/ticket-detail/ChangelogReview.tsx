@@ -7,7 +7,6 @@ import {
   generateChangelog,
   previewChangelog,
   approveChangelog,
-  rejectChangelog,
   updateChangelogDraft,
   createManualChangelog,
 } from "../../lib/api";
@@ -28,8 +27,6 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
-  const [rejectReason, setRejectReason] = useState("");
-  const [showRejectForm, setShowRejectForm] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
@@ -89,22 +86,6 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
     }
   };
 
-  const handleReject = async () => {
-    if (!rejectReason.trim()) return;
-    setActionLoading(true);
-    try {
-      const entry = await rejectChangelog(ticketId, "admin@feedback-hub.com", rejectReason);
-      setChangelog(entry);
-      setShowRejectForm(false);
-      setRejectReason("");
-      setToast({ message: "Changelog rejected", type: "success" });
-    } catch (e) {
-      setToast({ message: e instanceof Error ? e.message : "Failed to reject", type: "error" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleSaveEdit = async () => {
     setActionLoading(true);
     try {
@@ -122,7 +103,6 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
   const startEditing = () => {
     setEditContent(changelog?.content || "");
     setEditing(true);
-    setShowRejectForm(false);
   };
 
   const toastEl = toast && (
@@ -200,28 +180,6 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
     );
   }
 
-  // Rejected state
-  if (changelog.status === "rejected") {
-    return (
-      <>
-        <div className="card-muted">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="section-title">
-              Changelog Review
-            </h2>
-            <span className={`badge ${statusColor}`}>
-              {statusLabel}
-            </span>
-          </div>
-          <p className="text-sm text-gray-500 whitespace-pre-wrap">
-            {changelog.content}
-          </p>
-        </div>
-        {toastEl}
-      </>
-    );
-  }
-
   // Regenerating state — show the ContentCreator again
   if (regenerating) {
     return (
@@ -281,66 +239,30 @@ export default function ChangelogReview({ ticketId, ticketStatus }: Props) {
               </button>
             </div>
           </div>
-        ) : showRejectForm ? (
-          <div className="space-y-3 animate-fade-in">
-            <p className="text-sm text-gray-800 whitespace-pre-wrap mb-2">
-              {changelog.content}
-            </p>
-            <input
-              type="text"
-              placeholder="Reason for rejection..."
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              className="input-field focus:ring-red-500"
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={handleReject}
-                disabled={actionLoading || !rejectReason.trim()}
-                className="btn-reject px-3 py-1.5 disabled:opacity-50"
-              >
-                {actionLoading ? "Rejecting..." : "Confirm Reject"}
-              </button>
-              <button
-                onClick={() => { setShowRejectForm(false); setRejectReason(""); }}
-                className="btn-secondary px-3 py-1.5"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
         ) : (
           <>
             <p className="text-sm text-gray-800 whitespace-pre-wrap mb-4 leading-relaxed">
               {changelog.content}
             </p>
-            <div className="flex items-center justify-between">
-              <div className="flex gap-2">
-                <button
-                  onClick={handleApprove}
-                  disabled={actionLoading}
-                  className="btn-approve px-3 py-1.5"
-                >
-                  {actionLoading ? "Approving..." : "Approve"}
-                </button>
-                <button
-                  onClick={startEditing}
-                  className="btn-secondary px-3 py-1.5"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => setRegenerating(true)}
-                  className="btn-secondary px-3 py-1.5"
-                >
-                  Regenerate
-                </button>
-              </div>
+            <div className="flex gap-2">
               <button
-                onClick={() => setShowRejectForm(true)}
-                className="text-xs text-red-600 hover:text-red-700 font-medium"
+                onClick={handleApprove}
+                disabled={actionLoading}
+                className="btn-approve px-3 py-1.5"
               >
-                Reject
+                {actionLoading ? "Approving..." : "Approve"}
+              </button>
+              <button
+                onClick={startEditing}
+                className="btn-secondary px-3 py-1.5"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => setRegenerating(true)}
+                className="btn-secondary px-3 py-1.5"
+              >
+                Regenerate
               </button>
             </div>
           </>
