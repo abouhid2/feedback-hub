@@ -56,7 +56,7 @@ class TicketTypeInferenceService
         { role: "user", content: scrubbed }
       ],
       temperature: 0.1,
-      max_tokens: 20
+      max_completion_tokens: 20
     }.to_json
 
     response = http.request(request)

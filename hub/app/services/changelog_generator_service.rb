@@ -37,7 +37,7 @@ class ChangelogGeneratorService
         { role: "user", content: user_message }
       ],
       temperature: 0.7,
-      max_tokens: 400
+      max_completion_tokens: 400
     }.to_json
 
     response = http.request(request)
@@ -128,7 +128,7 @@ class ChangelogGeneratorService
         { role: "user", content: @custom_prompt || user_prompt }
       ],
       temperature: 0.7,
-      max_tokens: 300
+      max_completion_tokens: 300
     }.to_json
 
     response = http.request(request)

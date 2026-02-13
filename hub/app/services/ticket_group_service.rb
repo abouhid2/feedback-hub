@@ -114,6 +114,7 @@ class TicketGroupService
     primary = group.primary_ticket
     if primary && notification_content.present?
       identity = primary.reporter&.reporter_identities&.find_by(platform: channel)
+      identity ||= primary.reporter&.reporter_identities&.find_by(platform: primary.original_channel)
       recipient = identity&.platform_user_id || "unknown"
 
       # Link to the primary ticket's approved entry if one exists

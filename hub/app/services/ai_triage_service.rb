@@ -83,7 +83,7 @@ class AiTriageService
         { role: "user", content: user_prompt }
       ],
       temperature: 0.3,
-      max_tokens: 200
+      max_completion_tokens: 200
     }.to_json
 
     response = http.request(request)
