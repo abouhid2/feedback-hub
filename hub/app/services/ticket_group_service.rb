@@ -103,6 +103,27 @@ class TicketGroupService
       resolution_note: resolution_note
     )
 
+    # Persist group content as a changelog entry on the primary ticket
+    primary = group.primary_ticket
+    if primary && content.present?
+      entry = primary.changelog_entries.create!(
+        content: content,
+        status: "approved",
+        ai_model: "group",
+        ai_prompt_tokens: 0,
+        ai_completion_tokens: 0,
+        approved_by: "group_resolution",
+        approved_at: Time.current
+      )
+
+      primary.ticket_events.create!(
+        event_type: "changelog_approved",
+        actor_type: "system",
+        actor_id: "ticket_group_service",
+        data: { changelog_entry_id: entry.id, group_id: group.id }
+      )
+    end
+
     # Use provided content, or fall back to aggregated changelog entries
     notification_content = content.presence
     unless notification_content
@@ -111,13 +132,12 @@ class TicketGroupService
     end
 
     # Send one notification on the primary ticket
-    primary = group.primary_ticket
     if primary && notification_content.present?
       identity = primary.reporter&.reporter_identities&.find_by(platform: channel)
       identity ||= primary.reporter&.reporter_identities&.find_by(platform: primary.original_channel)
       recipient = identity&.platform_user_id || "unknown"
 
-      # Link to the primary ticket's approved entry if one exists
+      # Link to the primary ticket's approved entry
       primary_entry = primary.changelog_entries.find_by(status: "approved")
 
       notification = primary.notifications.create!(

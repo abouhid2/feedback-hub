@@ -10,7 +10,7 @@ import {
 } from "../../lib/constants";
 import PageHeader from "../../components/PageHeader";
 
-const STATUS_OPTIONS = ["all", "draft", "approved", "rejected"];
+const STATUS_OPTIONS = ["all", "draft", "approved"];
 
 export default function ChangelogEntriesPage() {
   const [entries, setEntries] = useState<ChangelogEntryWithTicket[]>([]);

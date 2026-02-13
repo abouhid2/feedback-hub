@@ -185,5 +185,25 @@ RSpec.describe TicketGroupService, type: :service do
         described_class.resolve_group(group: group.reload, channel: "slack")
       }.to raise_error(TicketGroupService::AlreadyResolved)
     end
+
+    context "when content is provided" do
+      it "persists a changelog entry on the primary ticket" do
+        expect {
+          described_class.resolve_group(group: group, channel: "slack", content: "Group changelog content")
+        }.to change { ticket1.changelog_entries.count }.by(1)
+
+        entry = ticket1.changelog_entries.order(created_at: :desc).first
+        expect(entry.content).to eq("Group changelog content")
+        expect(entry.status).to eq("approved")
+        expect(entry.ai_model).to eq("group")
+        expect(entry.approved_by).to eq("group_resolution")
+      end
+
+      it "creates a changelog_approved event" do
+        expect {
+          described_class.resolve_group(group: group, channel: "slack", content: "Group changelog content")
+        }.to change { TicketEvent.where(event_type: "changelog_approved").count }.by(1)
+      end
+    end
   end
 end
