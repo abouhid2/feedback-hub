@@ -71,6 +71,24 @@ function EventData({
     );
   }
 
+  if (eventType === "pii_redacted") {
+    const types = Array.isArray(data.redacted_types) ? data.redacted_types as string[] : [];
+    const labels: Record<string, string> = { email: "Email", phone: "Phone", password: "Password", ssn: "SSN" };
+    const service = typeof data.service === "string" ? data.service : null;
+    return (
+      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+        {types.map((t) => (
+          <span key={t} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
+            {labels[t] || t} redacted
+          </span>
+        ))}
+        {service && (
+          <span className="text-xs text-gray-400">via {service}</span>
+        )}
+      </div>
+    );
+  }
+
   return (
     <pre className="code-inline text-gray-500 mt-1">
       {JSON.stringify(data, null, 2)}

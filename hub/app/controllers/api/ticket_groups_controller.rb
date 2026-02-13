@@ -161,6 +161,7 @@ module Api
         status: ticket.status,
         original_channel: ticket.original_channel,
         reporter: ticket.reporter ? { name: ticket.reporter.name, email: ticket.reporter.email } : nil,
+        pii_redacted_types: ticket.pii_redacted_types || [],
         created_at: ticket.created_at
       }
     end

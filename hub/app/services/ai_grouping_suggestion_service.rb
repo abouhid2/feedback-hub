@@ -41,12 +41,14 @@ class AiGroupingSuggestionService
     ai_tickets.each_with_index { |t, i| @index_to_id[(i + 1).to_s] = t.id }
     @valid_ids = Set.new(ai_tickets.map(&:id))
 
-    ai_response = request_openai(build_user_prompt(ai_tickets))
+    prompt, redactions_by_ticket = build_user_prompt(ai_tickets)
+    ai_response = request_openai(prompt)
     groups = parse_response(ai_response)
 
     {
       suggestions: groups,
       tickets: serialize_tickets(all_tickets),
+      redactions: redactions_by_ticket,
       ticket_count: all_tickets.size
     }
   end
@@ -55,21 +57,27 @@ class AiGroupingSuggestionService
 
   def build_user_prompt(tickets)
     lines = ["#{tickets.size} support tickets to analyze:\n"]
+    redactions_by_ticket = {}
 
     tickets.each_with_index do |ticket, i|
       group_tag = ticket.ticket_group ? " [GROUP: #{ticket.ticket_group.name}]" : ""
-      scrubbed_title = PiiScrubberService.scrub(ticket.title)[:scrubbed]
-      scrubbed_desc = ticket.description.present? ? PiiScrubberService.scrub(ticket.description)[:scrubbed] : nil
+      title_result = PiiScrubberService.scrub(ticket.title)
+      desc_result = ticket.description.present? ? PiiScrubberService.scrub(ticket.description) : nil
+
+      all_redactions = title_result[:redactions] + (desc_result ? desc_result[:redactions] : [])
+      if all_redactions.any?
+        redactions_by_ticket[ticket.id] = all_redactions.map { |r| r[:type].to_s }.uniq
+      end
 
       lines << "Ticket #{i + 1} (id: #{ticket.id})#{group_tag}:"
-      lines << "  Title: #{scrubbed_title}"
-      lines << "  Description: #{scrubbed_desc}" if scrubbed_desc
+      lines << "  Title: #{title_result[:scrubbed]}"
+      lines << "  Description: #{desc_result[:scrubbed]}" if desc_result
       lines << "  Channel: #{ticket.original_channel}"
       lines << "  Priority: P#{ticket.priority}"
       lines << ""
     end
 
-    lines.join("\n")
+    [lines.join("\n"), redactions_by_ticket]
   end
 
   def request_openai(user_message, retries: 2)

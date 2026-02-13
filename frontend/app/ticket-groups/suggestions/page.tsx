@@ -13,6 +13,7 @@ const STORAGE_KEY = "ai_suggestions";
 interface StoredSuggestions {
   suggestions: GroupingSuggestion[];
   tickets: SuggestionTicket[];
+  redactions: Record<string, string[]>;
 }
 
 function loadFromStorage(): StoredSuggestions | null {
@@ -38,6 +39,7 @@ function clearStorage() {
 export default function AISuggestionsPage() {
   const [suggestions, setSuggestions] = useState<GroupingSuggestion[] | null>(null);
   const [suggestionTickets, setSuggestionTickets] = useState<SuggestionTicket[]>([]);
+  const [redactions, setRedactions] = useState<Record<string, string[]>>({});
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [showSuggestModal, setShowSuggestModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
@@ -47,6 +49,7 @@ export default function AISuggestionsPage() {
     if (stored) {
       setSuggestions(stored.suggestions);
       setSuggestionTickets(stored.tickets);
+      setRedactions(stored.redactions || {});
     }
   }, []);
 
@@ -62,7 +65,8 @@ export default function AISuggestionsPage() {
       } else {
         setSuggestions(result.suggestions);
         setSuggestionTickets(result.tickets);
-        saveToStorage({ suggestions: result.suggestions, tickets: result.tickets });
+        setRedactions(result.redactions || {});
+        saveToStorage({ suggestions: result.suggestions, tickets: result.tickets, redactions: result.redactions || {} });
       }
     } catch (e) {
       setToast({ message: e instanceof Error ? e.message : "Failed to get suggestions", type: "error" });
@@ -74,6 +78,7 @@ export default function AISuggestionsPage() {
   const handleDone = useCallback(() => {
     setSuggestions(null);
     setSuggestionTickets([]);
+    setRedactions({});
     clearStorage();
   }, []);
 
@@ -104,6 +109,7 @@ export default function AISuggestionsPage() {
           <SuggestionsPanel
             suggestions={suggestions}
             tickets={suggestionTickets}
+            redactions={redactions}
             onDone={handleDone}
             onToast={(message, type) => setToast({ message, type })}
           />

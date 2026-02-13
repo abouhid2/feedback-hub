@@ -8,6 +8,7 @@ class TicketEvent < ApplicationRecord
     synced_to_notion
     ai_triaged
     ticket_grouped group_resolved
+    pii_redacted
   ].freeze
 
   validates :event_type, presence: true, inclusion: { in: EVENT_TYPES }

@@ -1,18 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { GroupingSuggestion, SuggestionTicket } from "../../lib/types";
 import { createTicketGroup, addTicketsToGroup } from "../../lib/api";
 import { CHANNEL_ICONS, CHANNEL_COLORS, PRIORITY_COLORS, PRIORITY_LABELS } from "../../lib/constants";
 
+const REDACTION_LABELS: Record<string, string> = {
+  email: "Email",
+  phone: "Phone",
+  password: "Password",
+  ssn: "SSN",
+};
+
 interface SuggestionsPanelProps {
   suggestions: GroupingSuggestion[];
   tickets: SuggestionTicket[];
+  redactions?: Record<string, string[]>;
   onDone: () => void;
   onToast: (message: string, type: "success" | "error") => void;
 }
 
-export default function SuggestionsPanel({ suggestions: initialSuggestions, tickets, onDone, onToast }: SuggestionsPanelProps) {
+export default function SuggestionsPanel({ suggestions: initialSuggestions, tickets, redactions, onDone, onToast }: SuggestionsPanelProps) {
   const [suggestions, setSuggestions] = useState(initialSuggestions);
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
 
@@ -45,12 +54,21 @@ export default function SuggestionsPanel({ suggestions: initialSuggestions, tick
         .map((id) => ticketMap.get(id))
         .find((t) => t?.ticket_group_id);
 
-      if (!groupedTicket?.ticket_group_id) return;
+      if (!groupedTicket?.ticket_group_id) {
+        onToast("No existing group found to add tickets to", "error");
+        return;
+      }
 
       const ungroupedIds = suggestion.ticket_ids.filter((id) => {
         const t = ticketMap.get(id);
         return !t?.ticket_group_id;
       });
+
+      if (ungroupedIds.length === 0) {
+        onToast(`All tickets are already grouped in "${groupedTicket.ticket_group_name}"`, "success");
+        dismiss(index);
+        return;
+      }
 
       await addTicketsToGroup(groupedTicket.ticket_group_id, ungroupedIds);
       onToast(`Added ${ungroupedIds.length} ticket${ungroupedIds.length !== 1 ? "s" : ""} to group "${groupedTicket.ticket_group_name}"`, "success");
@@ -85,6 +103,7 @@ export default function SuggestionsPanel({ suggestions: initialSuggestions, tick
 
         const hasGroupedTickets = suggestionTickets.some((t) => t.ticket_group_id);
         const allUngrouped = suggestionTickets.every((t) => !t.ticket_group_id);
+        const allAlreadyGrouped = suggestionTickets.length > 0 && suggestionTickets.every((t) => t.ticket_group_id);
 
         return (
           <div key={index} className="card border border-indigo-100 bg-indigo-50/30">
@@ -94,7 +113,14 @@ export default function SuggestionsPanel({ suggestions: initialSuggestions, tick
                 <p className="text-sm text-gray-500 mt-0.5">{suggestion.reason}</p>
               </div>
               <div className="flex items-center gap-2 ml-4 shrink-0">
-                {allUngrouped ? (
+                {allAlreadyGrouped ? (
+                  <Link
+                    href={`/ticket-groups?group=${suggestionTickets[0]?.ticket_group_id}`}
+                    className="px-3 py-1.5 text-sm text-brand bg-brand-light rounded-lg hover:bg-brand-medium transition-colors"
+                  >
+                    View in &ldquo;{suggestionTickets[0]?.ticket_group_name}&rdquo;
+                  </Link>
+                ) : allUngrouped ? (
                   <button
                     onClick={() => handleCreateGroup(suggestion, index)}
                     disabled={loadingIndex === index}
@@ -125,33 +151,48 @@ export default function SuggestionsPanel({ suggestions: initialSuggestions, tick
                 <p className="text-sm text-gray-400 py-2 px-2">No matching tickets found for this suggestion.</p>
               ) : (
                 <div className="space-y-2 py-1">
-                  {suggestionTickets.map((ticket) => (
-                    <div key={ticket.id} className="flex items-start gap-3 px-2 py-1.5 rounded hover:bg-indigo-50/50">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-gray-800 truncate">{ticket.title}</span>
-                          <span className={`badge-channel text-xs ${CHANNEL_COLORS[ticket.original_channel] || ""}`}>
-                            {CHANNEL_ICONS[ticket.original_channel]} {ticket.original_channel}
-                          </span>
-                          <span className={`badge-priority text-xs ${PRIORITY_COLORS[ticket.priority] || "bg-gray-200"}`}>
-                            {PRIORITY_LABELS[ticket.priority] || `P${ticket.priority}`}
-                          </span>
-                          {ticket.ticket_group_name ? (
-                            <span className="badge bg-indigo-100 text-indigo-700 text-xs">
-                              {ticket.ticket_group_name}
+                  {suggestionTickets.map((ticket) => {
+                    const ticketRedactions = redactions?.[ticket.id];
+                    return (
+                      <div key={ticket.id} className="flex items-start gap-3 px-2 py-1.5 rounded hover:bg-indigo-50/50">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-gray-800 truncate">{ticket.title}</span>
+                            <span className={`badge-channel text-xs ${CHANNEL_COLORS[ticket.original_channel] || ""}`}>
+                              {CHANNEL_ICONS[ticket.original_channel]} {ticket.original_channel}
                             </span>
-                          ) : (
-                            <span className="text-gray-400 text-xs">ungrouped</span>
+                            <span className={`badge-priority text-xs ${PRIORITY_COLORS[ticket.priority] || "bg-gray-200"}`}>
+                              {PRIORITY_LABELS[ticket.priority] || `P${ticket.priority}`}
+                            </span>
+                            {ticket.ticket_group_name ? (
+                              <span className="badge bg-indigo-100 text-indigo-700 text-xs">
+                                {ticket.ticket_group_name}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">ungrouped</span>
+                            )}
+                            {ticketRedactions && ticketRedactions.map((type) => (
+                              <span
+                                key={type}
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200"
+                                title={`${REDACTION_LABELS[type] || type} was redacted before sending to AI`}
+                              >
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                                </svg>
+                                {REDACTION_LABELS[type] || type} redacted
+                              </span>
+                            ))}
+                          </div>
+                          {(ticket.ai_summary || ticket.description) && (
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                              {ticket.ai_summary || ticket.description}
+                            </p>
                           )}
                         </div>
-                        {(ticket.ai_summary || ticket.description) && (
-                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                            {ticket.ai_summary || ticket.description}
-                          </p>
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

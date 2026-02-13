@@ -119,6 +119,7 @@ export interface TicketGroupTicket {
   status: string;
   original_channel: string;
   reporter: { name: string; email: string | null } | null;
+  pii_redacted_types: string[];
   created_at: string;
 }
 
@@ -138,6 +139,7 @@ export interface SuggestionTicket extends TicketGroupTicket {
 export interface GroupingSuggestionsResponse {
   suggestions: GroupingSuggestion[];
   tickets: SuggestionTicket[];
+  redactions: Record<string, string[]>;
   ticket_count: number;
 }
 

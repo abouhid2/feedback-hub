@@ -10,6 +10,7 @@ class AiTriageService
 
   def initialize(ticket)
     @ticket = ticket
+    @redaction_types = []
   end
 
   def call
@@ -20,12 +21,17 @@ class AiTriageService
     response = request_openai
     parsed = parse_response(response)
 
-    @ticket.update!(
+    updates = {
       ai_suggested_type: parsed["suggested_type"],
       ai_suggested_priority: parsed["suggested_priority"],
       ai_summary: parsed["summary"],
       enrichment_status: "completed"
-    )
+    }
+    if @redaction_types.any?
+      merged = (@ticket.pii_redacted_types + @redaction_types).uniq
+      updates[:pii_redacted_types] = merged
+    end
+    @ticket.update!(updates)
 
     @ticket.ticket_events.create!(
       event_type: "ai_triaged",
@@ -37,6 +43,15 @@ class AiTriageService
         ai_summary: parsed["summary"]
       }
     )
+
+    if @redaction_types.any?
+      @ticket.ticket_events.create!(
+        event_type: "pii_redacted",
+        actor_type: "system",
+        actor_id: "ai_triage",
+        data: { redacted_types: @redaction_types, service: "triage" }
+      )
+    end
 
     NotionSyncJob.perform_later(@ticket.id)
 
@@ -97,8 +112,9 @@ class AiTriageService
   end
 
   def user_prompt
-    scrubbed = PiiScrubberService.scrub(ticket_text)[:scrubbed]
-    scrubbed
+    result = PiiScrubberService.scrub(ticket_text)
+    @redaction_types = result[:redactions].map { |r| r[:type].to_s }.uniq
+    result[:scrubbed]
   end
 
   def ticket_text

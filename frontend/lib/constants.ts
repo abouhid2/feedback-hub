@@ -58,6 +58,7 @@ export const EVENT_LABELS: Record<string, string> = {
   ai_triaged: "AI triage completed",
   ticket_grouped: "Added to group",
   group_resolved: "Group resolved",
+  pii_redacted: "PII redacted before AI",
 };
 
 export const EVENT_ICONS: Record<string, string> = {
@@ -76,6 +77,7 @@ export const EVENT_ICONS: Record<string, string> = {
   ai_triaged: "\u{1F916}",
   ticket_grouped: "\u{1F4CE}",
   group_resolved: "\u{2705}",
+  pii_redacted: "\u{1F6E1}\u{FE0F}",
 };
 
 export const CHANGELOG_STATUS_COLORS: Record<string, string> = {

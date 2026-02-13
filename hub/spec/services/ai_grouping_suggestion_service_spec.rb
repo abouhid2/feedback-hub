@@ -58,6 +58,17 @@ RSpec.describe AiGroupingSuggestionService do
       }
     end
 
+    it "returns per-ticket redaction types in the response" do
+      ticket1.update!(title: "Login broken for user john@example.com")
+      ticket2.update!(description: "Call me at +1-555-123-4567 for details")
+
+      result = described_class.call(start_time: 4.hours.ago, end_time: Time.current)
+
+      expect(result[:redactions][ticket1.id]).to eq(["email"])
+      expect(result[:redactions][ticket2.id]).to eq(["phone"])
+      expect(result[:redactions]).not_to have_key(ticket3.id)
+    end
+
     it "includes both grouped and ungrouped tickets" do
       group = TicketGroupService.create_group(
         name: "Existing group",

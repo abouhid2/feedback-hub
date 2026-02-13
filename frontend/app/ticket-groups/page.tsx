@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { TicketGroup } from "../../lib/types";
 import { fetchTicketGroups, fetchTicketGroup, resolveTicketGroup, simulateIncident } from "../../lib/api";
 import TicketGroupCard from "../../components/ticket-groups/TicketGroupCard";
@@ -9,6 +10,8 @@ import Toast from "../../components/Toast";
 import PageHeader from "../../components/PageHeader";
 
 export default function TicketGroupsPage() {
+  const searchParams = useSearchParams();
+  const highlightGroupId = searchParams.get("group");
   const [groups, setGroups] = useState<TicketGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("open");
@@ -112,6 +115,7 @@ export default function TicketGroupsPage() {
             <TicketGroupCard
               key={group.id}
               group={group}
+              highlight={group.id === highlightGroupId}
               onResolve={(g) => setResolvingGroup(g)}
             />
           ))

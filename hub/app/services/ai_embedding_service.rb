@@ -17,24 +17,47 @@ class AiEmbeddingService
     return nil unless api_key_configured?
     raise AiApiError, "OpenAI rate limit cooldown active — try again later" if rate_limited?
 
-    text = build_text
+    text, redaction_types = build_text
     embedding = request_embedding(text)
 
-    @ticket.update!(ai_embedding: embedding)
+    updates = { ai_embedding: embedding }
+    if redaction_types.any?
+      merged = (@ticket.pii_redacted_types + redaction_types).uniq
+      updates[:pii_redacted_types] = merged
+    end
+    @ticket.update!(updates)
+
+    record_pii_event(redaction_types) if redaction_types.any?
+
     embedding
   end
 
   private
 
   def build_text
-    scrubbed_title = PiiScrubberService.scrub(@ticket.title)[:scrubbed]
-    parts = [scrubbed_title]
+    title_result = PiiScrubberService.scrub(@ticket.title)
+    all_redactions = title_result[:redactions].dup
+    parts = [title_result[:scrubbed]]
+
     if @ticket.description.present?
-      scrubbed_desc = PiiScrubberService.scrub(@ticket.description)[:scrubbed]
-      parts << scrubbed_desc
+      desc_result = PiiScrubberService.scrub(@ticket.description)
+      all_redactions.concat(desc_result[:redactions])
+      parts << desc_result[:scrubbed]
     end
+
     parts << "Channel: #{@ticket.original_channel}"
-    parts.join(" | ")
+    redaction_types = all_redactions.map { |r| r[:type].to_s }.uniq
+
+    [parts.join(" | "), redaction_types]
+  end
+
+  def record_pii_event(types)
+    @ticket.ticket_events.create!(
+      event_type: "pii_redacted",
+      actor_type: "system",
+      actor_id: "ai_embedding",
+      data: { redacted_types: types, service: "embedding" }
+    )
   end
 
   def request_embedding(text, retries: 2)
