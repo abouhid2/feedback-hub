@@ -33,6 +33,7 @@
 16. [Frontend Pages](#16-frontend-pages)
 17. [Testing](#17-testing)
 18. [Trade-offs & Alternatives](#18-trade-offs--alternatives)
+19. [AWS Deployment Readiness](#19-aws-deployment-readiness)
 
 ---
 
@@ -1142,3 +1143,95 @@ Covers component rendering, user interactions, API integration, and error states
 - Timeline UI can render the full lifecycle of a ticket
 - Debugging is straightforward — read the event log chronologically
 - No need for change-data-capture infrastructure
+
+---
+
+## 19. AWS Deployment Readiness
+
+The system is designed to deploy on **AWS ECS (Fargate) + RDS PostgreSQL + ElastiCache Redis + S3**, with no code changes required — only environment variables.
+
+### 19.1 Infrastructure Mapping
+
+| Local (Development) | AWS (Production) | Config Source |
+|---------------------|------------------|---------------|
+| PostgreSQL 14 (localhost) | **Amazon RDS** PostgreSQL 14 | `DATABASE_URL` env var |
+| Redis (localhost:6379) | **Amazon ElastiCache** Redis 7 | `REDIS_URL` env var |
+| Local disk (`storage/`) | **Amazon S3** bucket | `storage.yml` → `amazon` service |
+| `rails server` process | **ECS Fargate** service (512 CPU / 1024 MB) | `task-definition-rails.json` |
+| `sidekiq` process | **ECS Fargate** service (256 CPU / 512 MB) | `task-definition-sidekiq.json` |
+| Docker image | **ECR** container registry | `hub/Dockerfile` (production-ready) |
+
+### 19.2 ECS Service Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                        AWS VPC                               │
+│                                                              │
+│  ┌─────────────────────┐    ┌──────────────────────────┐     │
+│  │   ALB (port 443)    │    │  Secrets Manager          │     │
+│  │   ┌─health: /up     │    │  ├─ DATABASE_URL           │     │
+│  │   └─routes → rails  │    │  ├─ REDIS_URL              │     │
+│  └────────┬────────────┘    │  ├─ OPENAI_API_KEY         │     │
+│           │                 │  ├─ NOTION_API_KEY          │     │
+│           ▼                 │  ├─ SLACK_BOT_TOKEN         │     │
+│  ┌─────────────────────┐   │  └─ ... (12 secrets)        │     │
+│  │  ECS Service: Rails │   └──────────────────────────┘     │
+│  │  Fargate 512/1024   │                                    │
+│  │  ┌───────────────┐  │   ┌──────────────────────────┐     │
+│  │  │ hub:latest    │  │   │  Amazon RDS               │     │
+│  │  │ CMD: thrust + │──┼──▶│  PostgreSQL 14            │     │
+│  │  │   rails server│  │   │  (UUID PKs, 10 tables)    │     │
+│  │  └───────────────┘  │   └──────────────────────────┘     │
+│  └─────────────────────┘                                    │
+│                                                              │
+│  ┌─────────────────────┐   ┌──────────────────────────┐     │
+│  │ ECS Service: Sidekiq│   │  ElastiCache Redis 7      │     │
+│  │ Fargate 256/512     │   │  (queues + cache)          │     │
+│  │  ┌───────────────┐  │   └──────────────────────────┘     │
+│  │  │ hub:latest    │──┼──▶                                  │
+│  │  │ CMD: sidekiq  │  │   ┌──────────────────────────┐     │
+│  │  └───────────────┘  │   │  Amazon S3                │     │
+│  └─────────────────────┘   │  (attachments bucket)     │     │
+│                             └──────────────────────────┘     │
+│                                                              │
+│  ┌─────────────────────┐                                    │
+│  │  CloudWatch Logs    │                                    │
+│  │  /ecs/feedback-hub-*│                                    │
+│  └─────────────────────┘                                    │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 19.3 Infrastructure Files
+
+```
+infrastructure/
+├── ecs/
+│   ├── task-definition-rails.json     # Fargate task: Rails API (512 CPU / 1024 MB)
+│   └── task-definition-sidekiq.json   # Fargate task: Sidekiq workers (256 CPU / 512 MB)
+└── docker-compose.production.yml      # Local production-like testing
+```
+
+- **Task definitions** reference AWS Secrets Manager for all sensitive env vars (DATABASE_URL, API keys, etc.)
+- **Health check** on the Rails container uses the existing `/up` endpoint
+- **CloudWatch Logs** configured with per-service log groups
+- **`docker-compose.production.yml`** mirrors the ECS architecture locally with Postgres, Redis, Rails, and Sidekiq containers
+
+### 19.4 S3 Integration
+
+Active Storage is configured with an `amazon` service in `config/storage.yml`:
+- Uses `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars (or ECS task role for automatic credential injection)
+- Bucket name from `S3_BUCKET` env var
+- The `attachments` table already stores `storage_url` — switching to S3 requires only setting `config.active_storage.service = :amazon` in `production.rb`
+
+### 19.5 What's Already Production-Ready
+
+| Capability | Status |
+|------------|--------|
+| **Stateless API** | No local file state — all data in PostgreSQL + Redis |
+| **Health check** | `GET /up` endpoint (used by ECS health check and ALB) |
+| **Structured logging** | JSON logs via `StructuredLogger` → CloudWatch compatible |
+| **Env-driven config** | All secrets and service URLs via environment variables |
+| **Production Dockerfile** | Multi-stage build, jemalloc, non-root user, Thruster |
+| **Database migrations** | `bin/docker-entrypoint` runs `db:prepare` on container start |
+| **Background jobs** | Sidekiq as a separate ECS service (independent scaling) |
+| **CORS** | Configurable via env var for production frontend domain |

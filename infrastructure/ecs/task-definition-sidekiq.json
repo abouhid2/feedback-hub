@@ -1,0 +1,84 @@
+{
+  "family": "feedback-hub-sidekiq",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/feedbackHubTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "sidekiq",
+      "image": "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/feedback-hub:latest",
+      "essential": true,
+      "command": ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"],
+      "environment": [
+        { "name": "RAILS_ENV", "value": "production" },
+        { "name": "RAILS_LOG_TO_STDOUT", "value": "1" },
+        { "name": "AWS_REGION", "value": "us-east-1" }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/DATABASE_URL"
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/REDIS_URL"
+        },
+        {
+          "name": "RAILS_MASTER_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/RAILS_MASTER_KEY"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/OPENAI_API_KEY"
+        },
+        {
+          "name": "NOTION_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/NOTION_API_KEY"
+        },
+        {
+          "name": "NOTION_DATABASE_ID",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/NOTION_DATABASE_ID"
+        },
+        {
+          "name": "SLACK_SIGNING_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/SLACK_SIGNING_SECRET"
+        },
+        {
+          "name": "SLACK_BOT_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/SLACK_BOT_TOKEN"
+        },
+        {
+          "name": "INTERCOM_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/INTERCOM_WEBHOOK_SECRET"
+        },
+        {
+          "name": "INTERCOM_API_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/INTERCOM_API_TOKEN"
+        },
+        {
+          "name": "WHATSAPP_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/WHATSAPP_WEBHOOK_SECRET"
+        },
+        {
+          "name": "WHATSAPP_API_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/WHATSAPP_API_TOKEN"
+        },
+        {
+          "name": "S3_BUCKET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/S3_BUCKET"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/feedback-hub-sidekiq",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "sidekiq"
+        }
+      }
+    }
+  ]
+}

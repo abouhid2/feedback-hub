@@ -169,6 +169,9 @@ RSpec.describe TicketGroupService, type: :service do
       expect {
         described_class.resolve_group(group: group, channel: "slack")
       }.to change { ticket1.notifications.count }.by(1)
+
+      notification = ticket1.notifications.last
+      expect(notification.status).to eq("sent")
     end
 
     it "does not send notifications on non-primary tickets" do

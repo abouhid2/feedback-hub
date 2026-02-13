@@ -1,0 +1,97 @@
+{
+  "family": "feedback-hub-rails",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/feedbackHubTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "rails",
+      "image": "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/feedback-hub:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "RAILS_ENV", "value": "production" },
+        { "name": "RAILS_LOG_TO_STDOUT", "value": "1" },
+        { "name": "RAILS_SERVE_STATIC_FILES", "value": "1" },
+        { "name": "AWS_REGION", "value": "us-east-1" }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/DATABASE_URL"
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/REDIS_URL"
+        },
+        {
+          "name": "RAILS_MASTER_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/RAILS_MASTER_KEY"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/OPENAI_API_KEY"
+        },
+        {
+          "name": "NOTION_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/NOTION_API_KEY"
+        },
+        {
+          "name": "NOTION_DATABASE_ID",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/NOTION_DATABASE_ID"
+        },
+        {
+          "name": "SLACK_SIGNING_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/SLACK_SIGNING_SECRET"
+        },
+        {
+          "name": "SLACK_BOT_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/SLACK_BOT_TOKEN"
+        },
+        {
+          "name": "INTERCOM_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/INTERCOM_WEBHOOK_SECRET"
+        },
+        {
+          "name": "INTERCOM_API_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/INTERCOM_API_TOKEN"
+        },
+        {
+          "name": "WHATSAPP_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/WHATSAPP_WEBHOOK_SECRET"
+        },
+        {
+          "name": "WHATSAPP_API_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/WHATSAPP_API_TOKEN"
+        },
+        {
+          "name": "S3_BUCKET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:feedback-hub/S3_BUCKET"
+        }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost/up || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/feedback-hub-rails",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "rails"
+        }
+      }
+    }
+  ]
+}

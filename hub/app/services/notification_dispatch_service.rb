@@ -21,7 +21,9 @@ class NotificationDispatchService
   end
 
   def self.retry_notification(notification)
-    new(notification.changelog_entry, ticket: notification.ticket).retry_send(notification)
+    service = new(notification.changelog_entry, ticket: notification.ticket)
+    service.send(:resolve_identity!, notification)
+    service.retry_send(notification)
   end
 
   def initialize(entry, ticket: nil)
@@ -54,6 +56,10 @@ class NotificationDispatchService
 
   def validate_approved!
     raise NotApproved, "Changelog entry must be approved (current: #{@entry.status})" unless @entry.status == "approved"
+  end
+
+  def resolve_identity!(notification)
+    @identity = @ticket.reporter&.reporter_identities&.find_by(platform: notification.channel)
   end
 
   def find_recipient!

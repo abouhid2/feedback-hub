@@ -110,9 +110,7 @@ class TicketGroupService
         content: notification_content
       )
 
-      if identity
-        NotificationDispatchService.retry_notification(notification)
-      end
+      NotificationDispatchService.retry_notification(notification)
     end
 
     # Create group_resolved events
