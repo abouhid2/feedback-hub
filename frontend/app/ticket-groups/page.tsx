@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { TicketGroup } from "../../lib/types";
-import { fetchTicketGroups, fetchTicketGroup, resolveTicketGroup } from "../../lib/api";
+import { TicketGroup, GroupingSuggestion, SuggestionTicket } from "../../lib/types";
+import { fetchTicketGroups, fetchTicketGroup, resolveTicketGroup, suggestTicketGroups, simulateIncident } from "../../lib/api";
 import TicketGroupCard from "../../components/ticket-groups/TicketGroupCard";
 import ResolveModal from "../../components/ticket-groups/ResolveModal";
+import SuggestionsPanel from "../../components/ticket-groups/SuggestionsPanel";
 import Toast from "../../components/Toast";
 import PageHeader from "../../components/PageHeader";
 
@@ -14,6 +15,11 @@ export default function TicketGroupsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("open");
   const [resolvingGroup, setResolvingGroup] = useState<TicketGroup | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
+  const [suggestions, setSuggestions] = useState<GroupingSuggestion[] | null>(null);
+  const [suggestionTickets, setSuggestionTickets] = useState<SuggestionTicket[]>([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [simulateLoading, setSimulateLoading] = useState(false);
+  const [showTimeframePicker, setShowTimeframePicker] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -34,6 +40,38 @@ export default function TicketGroupsPage() {
     return () => clearInterval(interval);
   }, [refresh]);
 
+  const handleSimulate = async () => {
+    setSimulateLoading(true);
+    try {
+      await simulateIncident();
+      setToast({ message: "Incident simulation started — tickets will appear in ~5 seconds", type: "success" });
+      setTimeout(refresh, 5000);
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Simulation failed", type: "error" });
+    } finally {
+      setSimulateLoading(false);
+    }
+  };
+
+  const handleSuggest = async (hours: number) => {
+    setShowTimeframePicker(false);
+    setSuggestLoading(true);
+    try {
+      const result = await suggestTicketGroups(hours);
+      if (result.suggestions.length === 0) {
+        setToast({ message: `No grouping suggestions found (${result.ticket_count} tickets analyzed)`, type: "success" });
+        setSuggestions(null);
+      } else {
+        setSuggestions(result.suggestions);
+        setSuggestionTickets(result.tickets);
+      }
+    } catch (e) {
+      setToast({ message: e instanceof Error ? e.message : "Failed to get suggestions", type: "error" });
+    } finally {
+      setSuggestLoading(false);
+    }
+  };
+
   const handleResolve = async (channel: string, content: string) => {
     if (!resolvingGroup) return;
     try {
@@ -52,7 +90,43 @@ export default function TicketGroupsPage() {
         title="Ticket Groups"
         subtitle="Group related tickets and resolve them together"
       >
-        <span>Auto-refreshing every 10s</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSimulate}
+            disabled={simulateLoading}
+            className="px-3 py-1.5 text-sm rounded-md border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+          >
+            {simulateLoading ? "Simulating..." : "Simulate Incident"}
+          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowTimeframePicker(!showTimeframePicker)}
+              disabled={suggestLoading}
+              className="btn-primary px-3 py-1.5 text-sm disabled:opacity-50"
+            >
+              {suggestLoading ? "Analyzing..." : "AI Suggest Groups"}
+            </button>
+            {showTimeframePicker && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[120px]">
+                {[
+                  { label: "Last 1h", hours: 1 },
+                  { label: "Last 4h", hours: 4 },
+                  { label: "Last 8h", hours: 8 },
+                  { label: "Last 24h", hours: 24 },
+                ].map((opt) => (
+                  <button
+                    key={opt.hours}
+                    onClick={() => handleSuggest(opt.hours)}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <span className="text-xs text-gray-400 ml-1">Auto-refreshing every 10s</span>
+        </div>
       </PageHeader>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
@@ -72,6 +146,15 @@ export default function TicketGroupsPage() {
             </button>
           ))}
         </div>
+
+        {suggestions && suggestions.length > 0 && (
+          <SuggestionsPanel
+            suggestions={suggestions}
+            tickets={suggestionTickets}
+            onDone={() => { setSuggestions(null); refresh(); }}
+            onToast={(message, type) => setToast({ message, type })}
+          />
+        )}
 
         {loading ? (
           <div className="text-center py-20 text-gray-400">

@@ -122,6 +122,23 @@ export interface TicketGroupTicket {
   created_at: string;
 }
 
+export interface GroupingSuggestion {
+  name: string;
+  reason: string;
+  ticket_ids: string[];
+}
+
+export interface SuggestionTicket extends TicketGroupTicket {
+  ticket_group_id: string | null;
+  ticket_group_name: string | null;
+}
+
+export interface GroupingSuggestionsResponse {
+  suggestions: GroupingSuggestion[];
+  tickets: SuggestionTicket[];
+  ticket_count: number;
+}
+
 export interface TicketGroup {
   id: string;
   name: string;

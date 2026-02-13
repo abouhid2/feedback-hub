@@ -93,6 +93,19 @@ module Api
       render json: { error: "Ticket group not found" }, status: :not_found
     end
 
+    def suggest
+      hours_ago = (params[:hours_ago] || 4).to_i
+      result = AiGroupingSuggestionService.call(hours_ago: hours_ago)
+      render json: result
+    rescue AiGroupingSuggestionService::AiApiError => e
+      render json: { error: e.message }, status: :unprocessable_entity
+    end
+
+    def simulate_incident
+      Simulator::IncidentSimulatorJob.new.perform
+      render json: { message: "Incident simulation complete", ticket_count: 8 }
+    end
+
     private
 
     def serialize_group(group)

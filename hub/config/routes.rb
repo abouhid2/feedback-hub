@@ -25,6 +25,10 @@ Rails.application.routes.draw do
     resources :changelog_entries, only: [:index]
 
     resources :ticket_groups, only: [:index, :show, :create] do
+      collection do
+        post :suggest
+        post :simulate_incident
+      end
       member do
         post :add_tickets
         delete :remove_ticket

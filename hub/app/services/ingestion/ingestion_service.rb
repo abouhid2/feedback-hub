@@ -25,7 +25,7 @@ module Ingestion
       normalizer = normalizer_class.new(payload)
       ticket = normalizer.normalize
       log.info("Ticket ingested", ticket_id: ticket.id, external_id: external_id, ticket_type: ticket.ticket_type, priority: ticket.priority)
-      # AI triage is user-initiated only (avoids burning OpenAI quota from simulator)
+      AiTriageJob.perform_later(ticket.id)
       ticket
     end
 

@@ -1,4 +1,4 @@
-import { Ticket, TicketDetail, ChangelogEntry, Notification, NotificationDetail, ChangelogEntryWithTicket, TicketGroup } from "./types";
+import { Ticket, TicketDetail, ChangelogEntry, Notification, NotificationDetail, ChangelogEntryWithTicket, TicketGroup, GroupingSuggestionsResponse } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
@@ -246,6 +246,14 @@ export function resolveTicketGroup(groupId: string, channel: string, content: st
 
 export function previewGroupContent(groupId: string): Promise<ChangelogPreview> {
   return request<ChangelogPreview>(`/api/ticket_groups/${groupId}/preview_content`);
+}
+
+export function suggestTicketGroups(hoursAgo: number): Promise<GroupingSuggestionsResponse> {
+  return mutate<GroupingSuggestionsResponse>("/api/ticket_groups/suggest", "POST", { hours_ago: hoursAgo });
+}
+
+export function simulateIncident(): Promise<{ message: string; ticket_count: number }> {
+  return mutate<{ message: string; ticket_count: number }>("/api/ticket_groups/simulate_incident", "POST");
 }
 
 export function generateGroupContent(
