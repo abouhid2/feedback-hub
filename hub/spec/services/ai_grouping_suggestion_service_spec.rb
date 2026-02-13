@@ -29,7 +29,7 @@ RSpec.describe AiGroupingSuggestionService do
 
   describe ".call" do
     it "returns suggestions from OpenAI" do
-      result = described_class.call(hours_ago: 4)
+      result = described_class.call(start_time: 4.hours.ago, end_time: Time.current)
 
       expect(result[:suggestions].length).to eq(1)
       expect(result[:suggestions].first[:name]).to eq("Platform Access Outage")
@@ -38,7 +38,7 @@ RSpec.describe AiGroupingSuggestionService do
     end
 
     it "includes ticket summaries in the response" do
-      result = described_class.call(hours_ago: 4)
+      result = described_class.call(start_time: 4.hours.ago, end_time: Time.current)
 
       expect(result[:tickets].length).to eq(3)
       expect(result[:tickets].first[:title]).to be_present
@@ -48,7 +48,7 @@ RSpec.describe AiGroupingSuggestionService do
     it "applies PII scrubbing before sending to OpenAI" do
       ticket1.update!(title: "Login broken for user john@example.com")
 
-      described_class.call(hours_ago: 4)
+      described_class.call(start_time: 4.hours.ago, end_time: Time.current)
 
       expect(WebMock).to have_requested(:post, "https://api.openai.com/v1/chat/completions").with { |req|
         body = JSON.parse(req.body)
@@ -65,7 +65,7 @@ RSpec.describe AiGroupingSuggestionService do
         primary_ticket_id: ticket1.id
       )
 
-      result = described_class.call(hours_ago: 4)
+      result = described_class.call(start_time: 4.hours.ago, end_time: Time.current)
 
       expect(result[:ticket_count]).to eq(3)
       grouped_ticket = result[:tickets].find { |t| t[:id] == ticket1.id }
@@ -80,7 +80,7 @@ RSpec.describe AiGroupingSuggestionService do
         primary_ticket_id: ticket1.id
       )
 
-      described_class.call(hours_ago: 4)
+      described_class.call(start_time: 4.hours.ago, end_time: Time.current)
 
       expect(WebMock).to have_requested(:post, "https://api.openai.com/v1/chat/completions").with { |req|
         body = JSON.parse(req.body)
@@ -89,9 +89,36 @@ RSpec.describe AiGroupingSuggestionService do
       }
     end
 
+    context "with order: 'first'" do
+      it "returns tickets in ascending order (oldest first)" do
+        result = described_class.call(start_time: 4.hours.ago, end_time: Time.current, order: "first")
+
+        created_ats = result[:tickets].map { |t| t[:created_at] }
+        expect(created_ats).to eq(created_ats.sort)
+      end
+    end
+
+    context "with order: 'last'" do
+      it "returns tickets in descending order (newest first)" do
+        result = described_class.call(start_time: 4.hours.ago, end_time: Time.current, order: "last")
+
+        created_ats = result[:tickets].map { |t| t[:created_at] }
+        expect(created_ats).to eq(created_ats.sort.reverse)
+      end
+    end
+
+    context "with limit" do
+      it "caps the number of tickets returned" do
+        result = described_class.call(start_time: 4.hours.ago, end_time: Time.current, limit: 2)
+
+        expect(result[:ticket_count]).to eq(2)
+        expect(result[:tickets].length).to eq(2)
+      end
+    end
+
     context "when fewer than 2 tickets in time frame" do
       it "returns empty suggestions without calling OpenAI" do
-        result = described_class.call(hours_ago: 0)
+        result = described_class.call(start_time: 1.second.ago, end_time: Time.current)
 
         expect(result[:suggestions]).to eq([])
         expect(result[:ticket_count]).to eq(0)
@@ -103,8 +130,58 @@ RSpec.describe AiGroupingSuggestionService do
       it "raises AiApiError" do
         allow(Rails.cache).to receive(:exist?).with("openai:rate_limited").and_return(true)
 
-        expect { described_class.call(hours_ago: 4) }
+        expect { described_class.call(start_time: 4.hours.ago, end_time: Time.current) }
           .to raise_error(AiGroupingSuggestionService::AiApiError, /rate limit/i)
+      end
+    end
+
+    context "when OpenAI returns index-based ticket IDs instead of UUIDs" do
+      let(:openai_response) do
+        {
+          choices: [{
+            message: {
+              content: {
+                groups: [{
+                  name: "Platform Outage",
+                  reason: "All report access issues",
+                  ticket_ids: ["1", "2", "3"]
+                }]
+              }.to_json
+            }
+          }]
+        }.to_json
+      end
+
+      it "resolves index numbers to actual ticket UUIDs" do
+        result = described_class.call(start_time: 4.hours.ago, end_time: Time.current)
+
+        expect(result[:suggestions].length).to eq(1)
+        suggestion_ids = result[:suggestions].first[:ticket_ids]
+        expect(suggestion_ids).to all(match(/\A[0-9a-f-]{36}\z/))
+        expect(suggestion_ids.length).to eq(3)
+      end
+    end
+
+    context "when OpenAI returns unresolvable ticket IDs" do
+      let(:openai_response) do
+        {
+          choices: [{
+            message: {
+              content: {
+                groups: [{
+                  name: "Bad Group",
+                  reason: "Invalid IDs",
+                  ticket_ids: ["nonexistent-1", "nonexistent-2"]
+                }]
+              }.to_json
+            }
+          }]
+        }.to_json
+      end
+
+      it "filters out suggestions with fewer than 2 valid tickets" do
+        result = described_class.call(start_time: 4.hours.ago, end_time: Time.current)
+        expect(result[:suggestions]).to eq([])
       end
     end
 
@@ -118,7 +195,7 @@ RSpec.describe AiGroupingSuggestionService do
       end
 
       it "returns empty suggestions" do
-        result = described_class.call(hours_ago: 4)
+        result = described_class.call(start_time: 4.hours.ago, end_time: Time.current)
         expect(result[:suggestions]).to eq([])
       end
     end
@@ -130,7 +207,7 @@ RSpec.describe AiGroupingSuggestionService do
       end
 
       it "raises AiApiError" do
-        expect { described_class.call(hours_ago: 4) }
+        expect { described_class.call(start_time: 4.hours.ago, end_time: Time.current) }
           .to raise_error(AiGroupingSuggestionService::AiApiError, /500/)
       end
     end

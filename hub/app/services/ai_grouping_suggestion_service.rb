@@ -6,18 +6,23 @@ class AiGroupingSuggestionService
   SYSTEM_PROMPT = AiConstants::GROUPING_SYSTEM_PROMPT
   MAX_TICKETS_FOR_AI = AiConstants::GROUPING_MAX_TICKETS_FOR_AI
 
-  def self.call(hours_ago: 4)
-    new(hours_ago: hours_ago).call
+  def self.call(limit: 50, order: "last", start_time: nil, end_time: nil)
+    new(limit: limit, order: order, start_time: start_time, end_time: end_time).call
   end
 
-  def initialize(hours_ago:)
-    @hours_ago = hours_ago
+  def initialize(limit:, order:, start_time:, end_time:)
+    @limit = [limit, MAX_TICKETS_FOR_AI].min
+    @order = order
+    @start_time = start_time || 30.minutes.ago
+    @end_time = end_time || Time.current
   end
 
   def call
+    direction = @order == "first" ? :asc : :desc
     all_tickets = Ticket.includes(:reporter, :ticket_group)
-                        .where("tickets.created_at >= ?", @hours_ago.hours.ago)
-                        .order(created_at: :desc)
+                        .where(created_at: @start_time..@end_time)
+                        .order(created_at: direction)
+                        .limit(@limit)
 
     if all_tickets.size < 2
       return { suggestions: [], tickets: serialize_tickets(all_tickets), ticket_count: all_tickets.size }
@@ -30,6 +35,11 @@ class AiGroupingSuggestionService
     ungrouped = all_tickets.select { |t| t.ticket_group_id.nil? }
     grouped = all_tickets.select { |t| t.ticket_group_id.present? }
     ai_tickets = (ungrouped + grouped).first(MAX_TICKETS_FOR_AI)
+
+    # Build index→UUID map so we can resolve IDs regardless of what OpenAI returns
+    @index_to_id = {}
+    ai_tickets.each_with_index { |t, i| @index_to_id[(i + 1).to_s] = t.id }
+    @valid_ids = Set.new(ai_tickets.map(&:id))
 
     ai_response = request_openai(build_user_prompt(ai_tickets))
     groups = parse_response(ai_response)
@@ -108,15 +118,24 @@ class AiGroupingSuggestionService
     parsed = JSON.parse(json_str)
     groups = parsed["groups"] || []
 
-    groups.map do |g|
+    groups.filter_map do |g|
+      resolved_ids = Array(g["ticket_ids"]).map { |raw_id| resolve_ticket_id(raw_id.to_s) }.compact.uniq
+      next if resolved_ids.size < 2
+
       {
         name: g["name"],
         reason: g["reason"],
-        ticket_ids: Array(g["ticket_ids"]).map(&:to_s)
+        ticket_ids: resolved_ids
       }
     end
   rescue JSON::ParserError
     []
+  end
+
+  # Resolve ticket ID from either UUID or index number (e.g. "1", "2")
+  def resolve_ticket_id(raw_id)
+    return raw_id if @valid_ids.include?(raw_id)
+    @index_to_id[raw_id]
   end
 
   def serialize_tickets(tickets)
@@ -124,6 +143,8 @@ class AiGroupingSuggestionService
       {
         id: t.id,
         title: t.title,
+        description: t.description&.truncate(200),
+        ai_summary: t.ai_summary,
         priority: t.priority,
         status: t.status,
         original_channel: t.original_channel,

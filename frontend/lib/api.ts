@@ -165,8 +165,15 @@ export function previewGroupContent(groupId: string): Promise<ChangelogPreview> 
   return request<ChangelogPreview>(`/api/ticket_groups/${groupId}/preview_content`);
 }
 
-export function suggestTicketGroups(hoursAgo: number): Promise<GroupingSuggestionsResponse> {
-  return mutate<GroupingSuggestionsResponse>("/api/ticket_groups/suggest", "POST", { hours_ago: hoursAgo });
+export interface SuggestFilters {
+  limit: number;
+  order: "first" | "last";
+  start_time: string;
+  end_time: string;
+}
+
+export function suggestTicketGroups(filters: SuggestFilters): Promise<GroupingSuggestionsResponse> {
+  return mutate<GroupingSuggestionsResponse>("/api/ticket_groups/suggest", "POST", filters as unknown as Record<string, unknown>);
 }
 
 export function simulateIncident(): Promise<{ message: string; ticket_count: number }> {

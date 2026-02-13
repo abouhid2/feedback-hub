@@ -149,7 +149,7 @@ RSpec.describe "Api::TicketGroups", type: :request do
     end
 
     it "returns AI grouping suggestions" do
-      post "/api/ticket_groups/suggest", params: { hours_ago: 24 }
+      post "/api/ticket_groups/suggest", params: { start_time: 24.hours.ago.iso8601, end_time: 1.minute.from_now.iso8601 }
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
@@ -158,8 +158,14 @@ RSpec.describe "Api::TicketGroups", type: :request do
       expect(body["ticket_count"]).to eq(2)
     end
 
-    it "uses default hours_ago of 4" do
+    it "uses defaults when no params given" do
       post "/api/ticket_groups/suggest"
+
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "accepts limit and order params" do
+      post "/api/ticket_groups/suggest", params: { limit: 10, order: "first", start_time: 24.hours.ago.iso8601, end_time: 1.minute.from_now.iso8601 }
 
       expect(response).to have_http_status(:ok)
     end
@@ -168,7 +174,7 @@ RSpec.describe "Api::TicketGroups", type: :request do
       stub_request(:post, "https://api.openai.com/v1/chat/completions")
         .to_return(status: 500, body: '{"error":"fail"}')
 
-      post "/api/ticket_groups/suggest", params: { hours_ago: 24 }
+      post "/api/ticket_groups/suggest", params: { start_time: 24.hours.ago.iso8601, end_time: 1.minute.from_now.iso8601 }
 
       expect(response).to have_http_status(:unprocessable_entity)
       body = JSON.parse(response.body)

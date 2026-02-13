@@ -129,6 +129,8 @@ export interface GroupingSuggestion {
 }
 
 export interface SuggestionTicket extends TicketGroupTicket {
+  description: string | null;
+  ai_summary: string | null;
   ticket_group_id: string | null;
   ticket_group_name: string | null;
 }

@@ -94,8 +94,14 @@ module Api
     end
 
     def suggest
-      hours_ago = (params[:hours_ago] || 4).to_i
-      result = AiGroupingSuggestionService.call(hours_ago: hours_ago)
+      limit = (params[:limit] || 50).to_i
+      order = params[:order].presence || "last"
+      start_time = params[:start_time].present? ? Time.zone.parse(params[:start_time]) : 30.minutes.ago
+      end_time = params[:end_time].present? ? Time.zone.parse(params[:end_time]) : Time.current
+
+      result = AiGroupingSuggestionService.call(
+        limit: limit, order: order, start_time: start_time, end_time: end_time
+      )
       render json: result
     rescue AiGroupingSuggestionService::AiApiError => e
       render json: { error: e.message }, status: :unprocessable_entity

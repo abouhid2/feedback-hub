@@ -121,42 +121,39 @@ export default function SuggestionsPanel({ suggestions: initialSuggestions, tick
             </div>
 
             <div className="border-t border-indigo-100 pt-2">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-xs text-gray-500 uppercase">
-                    <th className="text-left py-1 px-2">Title</th>
-                    <th className="text-left py-1 px-2">Channel</th>
-                    <th className="text-left py-1 px-2">Priority</th>
-                    <th className="text-left py-1 px-2">Group</th>
-                  </tr>
-                </thead>
-                <tbody>
+              {suggestionTickets.length === 0 ? (
+                <p className="text-sm text-gray-400 py-2 px-2">No matching tickets found for this suggestion.</p>
+              ) : (
+                <div className="space-y-2 py-1">
                   {suggestionTickets.map((ticket) => (
-                    <tr key={ticket.id} className="border-t border-indigo-50">
-                      <td className="py-1.5 px-2 text-sm text-gray-800">{ticket.title}</td>
-                      <td className="py-1.5 px-2">
-                        <span className={`badge-channel text-xs ${CHANNEL_COLORS[ticket.original_channel] || ""}`}>
-                          {CHANNEL_ICONS[ticket.original_channel]} {ticket.original_channel}
-                        </span>
-                      </td>
-                      <td className="py-1.5 px-2">
-                        <span className={`badge-priority text-xs ${PRIORITY_COLORS[ticket.priority] || "bg-gray-200"}`}>
-                          {PRIORITY_LABELS[ticket.priority] || `P${ticket.priority}`}
-                        </span>
-                      </td>
-                      <td className="py-1.5 px-2 text-sm">
-                        {ticket.ticket_group_name ? (
-                          <span className="badge bg-indigo-100 text-indigo-700 text-xs">
-                            {ticket.ticket_group_name}
+                    <div key={ticket.id} className="flex items-start gap-3 px-2 py-1.5 rounded hover:bg-indigo-50/50">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-gray-800 truncate">{ticket.title}</span>
+                          <span className={`badge-channel text-xs ${CHANNEL_COLORS[ticket.original_channel] || ""}`}>
+                            {CHANNEL_ICONS[ticket.original_channel]} {ticket.original_channel}
                           </span>
-                        ) : (
-                          <span className="text-gray-400 text-xs">ungrouped</span>
+                          <span className={`badge-priority text-xs ${PRIORITY_COLORS[ticket.priority] || "bg-gray-200"}`}>
+                            {PRIORITY_LABELS[ticket.priority] || `P${ticket.priority}`}
+                          </span>
+                          {ticket.ticket_group_name ? (
+                            <span className="badge bg-indigo-100 text-indigo-700 text-xs">
+                              {ticket.ticket_group_name}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">ungrouped</span>
+                          )}
+                        </div>
+                        {(ticket.ai_summary || ticket.description) && (
+                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                            {ticket.ai_summary || ticket.description}
+                          </p>
                         )}
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              )}
             </div>
           </div>
         );
