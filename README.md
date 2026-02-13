@@ -9,7 +9,7 @@
 | AI | OpenAI gpt-5.1 (default), selectable: gpt-5.1 · gpt-4.1 · gpt-4o-mini · o3-mini |
 | Integrations | Notion API · Slack API · Intercom API · WhatsApp Business API |
 
-**Test coverage:** 313 backend specs (RSpec) + 42 frontend tests (Jest/React Testing Library)
+**Test coverage:** 351 backend specs (RSpec) + 42 frontend tests (Jest/React Testing Library)
 
 ---
 
@@ -25,15 +25,16 @@
 8. [Notifications & Closing the Loop](#8-notifications--closing-the-loop)
 9. [Retry Limits & Rate Protection](#9-retry-limits--rate-protection)
 10. [Cross-Channel Ticket Grouping](#10-cross-channel-ticket-grouping)
-11. [Observability](#11-observability)
-12. [Security](#12-security)
-13. [Sequence Diagrams](#13-sequence-diagrams)
-14. [Edge Cases & Risk Analysis](#14-edge-cases--risk-analysis)
-15. [API Reference](#15-api-reference)
-16. [Frontend Pages](#16-frontend-pages)
-17. [Testing](#17-testing)
-18. [Trade-offs & Alternatives](#18-trade-offs--alternatives)
-19. [AWS Deployment Readiness](#19-aws-deployment-readiness)
+11. [AI Embedding & Grouping Suggestions](#11-ai-embedding--grouping-suggestions)
+12. [Observability](#12-observability)
+13. [Security](#13-security)
+14. [Sequence Diagrams](#14-sequence-diagrams)
+15. [Edge Cases & Risk Analysis](#15-edge-cases--risk-analysis)
+16. [API Reference](#16-api-reference)
+17. [Frontend Pages](#17-frontend-pages)
+18. [Testing](#18-testing)
+19. [Trade-offs & Alternatives](#19-trade-offs--alternatives)
+20. [AWS Deployment Readiness](#20-aws-deployment-readiness)
 
 ---
 
@@ -41,36 +42,117 @@
 
 ### Prerequisites
 
-- Ruby 3.3.6 (via rbenv)
+- Ruby 3.3.6 (via rbenv / RubyInstaller)
 - PostgreSQL 14
 - Redis
 - Node.js 22+
 
-### Setup
+### Setup — macOS
 
 ```bash
-# 1. Start Redis
-brew services start redis
+# 1. Install dependencies (Homebrew)
+brew install rbenv postgresql@14 redis node
 
-# 2. Backend — install, create DB, migrate
+# 2. Start services
+brew services start redis
+brew services start postgresql@14
+
+# 3. Backend — install, create DB, migrate
+cd hub
+rbenv install 3.3.6 && rbenv local 3.3.6
+bundle install
+bin/rails db:create db:migrate
+bin/rails server -p 3000
+
+# 4. Sidekiq (new terminal)
+cd hub
+bundle exec sidekiq -C config/sidekiq.yml
+
+# 5. Simulator — generates realistic payloads every ~3 min (optional)
+cd hub
+bin/rails simulator:start
+
+# 6. Frontend (new terminal)
+cd frontend
+npm install
+npm run dev   # → http://localhost:3001
+```
+
+### Setup — Linux (Ubuntu/Debian)
+
+```bash
+# 1. Install system dependencies
+sudo apt update && sudo apt install -y build-essential libpq-dev libssl-dev \
+  libyaml-dev zlib1g-dev libreadline-dev postgresql postgresql-contrib redis-server
+
+# 2. Install rbenv + Ruby
+curl -fsSL https://github.com/rbenv/rbenv-installer/raw/HEAD/bin/rbenv-installer | bash
+echo 'eval "$(rbenv init -)"' >> ~/.bashrc && source ~/.bashrc
+rbenv install 3.3.6 && rbenv global 3.3.6
+
+# 3. Install Node.js 22 (via NodeSource)
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# 4. Start services
+sudo systemctl start redis-server
+sudo systemctl start postgresql
+
+# 5. Create PostgreSQL user (if needed)
+sudo -u postgres createuser -s $(whoami)
+
+# 6. Backend
 cd hub
 bundle install
 bin/rails db:create db:migrate
 bin/rails server -p 3000
 
-# 3. Sidekiq (new terminal)
+# 7. Sidekiq (new terminal)
 cd hub
 bundle exec sidekiq -C config/sidekiq.yml
 
-# 4. Simulator — generates realistic payloads every ~3 min (optional)
+# 8. Simulator (optional, new terminal)
 cd hub
 bin/rails simulator:start
 
-# 5. Frontend (new terminal)
+# 9. Frontend (new terminal)
 cd frontend
 npm install
 npm run dev   # → http://localhost:3001
 ```
+
+### Setup — Windows
+
+> **Recommended:** Use WSL 2 (Windows Subsystem for Linux) with Ubuntu and follow the Linux instructions above. This is the most reliable path for Ruby + Rails development on Windows.
+
+**Native Windows (without WSL):**
+
+```powershell
+# 1. Install Ruby via RubyInstaller (https://rubyinstaller.org/)
+#    Download Ruby+Devkit 3.3.6 and run the installer (select MSYS2 toolchain)
+
+# 2. Install PostgreSQL 14 from https://www.postgresql.org/download/windows/
+# 3. Install Redis via Memurai (https://www.memurai.com/) or Docker Desktop
+
+# 4. Install Node.js 22 from https://nodejs.org/
+
+# 5. Backend (Command Prompt or PowerShell)
+cd hub
+bundle install
+rails db:create db:migrate
+rails server -p 3000
+
+# 6. Sidekiq (new terminal)
+cd hub
+bundle exec sidekiq -C config/sidekiq.yml
+
+# 7. Frontend (new terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+> **Note:** Some gems with native extensions may require additional configuration on native Windows. WSL 2 avoids these issues entirely.
 
 | Service | Port |
 |---------|------|
@@ -114,6 +196,8 @@ graph TB
         CR[ChangelogReviewService]
         ND[NotificationDispatchService]
         TG[TicketGroupService]
+        AE[AiEmbeddingService]
+        AGS[AiGroupingSuggestionService]
         DLQ[DeadLetterQueue]
     end
 
@@ -132,7 +216,7 @@ graph TB
     end
 
     subgraph Frontend
-        NX[Next.js 16<br/>8 pages]
+        NX[Next.js 16<br/>9 pages]
     end
 
     SL --> WH
@@ -199,6 +283,7 @@ erDiagram
         string ai_suggested_type
         integer ai_suggested_priority
         text ai_summary
+        float ai_embedding "array — text-embedding-3-small vector"
         string notion_page_id "UNIQUE partial (WHERE NOT NULL)"
         jsonb metadata
         jsonb tags
@@ -226,7 +311,7 @@ erDiagram
         uuid id PK
         uuid ticket_id FK
         text content
-        string status "draft | approved | rejected"
+        string status "draft | approved"
         string ai_model "gpt-5.1 (default)"
         integer ai_prompt_tokens
         integer ai_completion_tokens
@@ -301,7 +386,7 @@ erDiagram
 | **`UNIQUE` partial index on `reporters.email`** | Cross-channel reporter resolution uses email as the identity bridge (where available). |
 | **JSONB for `raw_payload`** | Stores the complete original webhook body for debugging without prescribing a schema. |
 | **JSONB for `metadata`** | Extensible key-value store on reporters, identities, and tickets for platform-specific data. |
-| **Separate `ticket_events` table** | Append-only audit log. Every state change is recorded (created, ai_triaged, synced_to_notion, status_changed, changelog_drafted/approved/rejected, notification_sent/failed). |
+| **Separate `ticket_events` table** | Append-only audit log. Every state change is recorded (created, ai_triaged, synced_to_notion, status_changed, changelog_drafted/approved, notification_sent/failed, ticket_grouped/ungrouped, group_resolved, pii_redacted). |
 | **`enrichment_status` on tickets** | Tracks AI pipeline state independently — `pending` → `completed` / `failed`. Allows retry without losing the ticket. |
 | **`last_message_at` on `reporter_identities`** | Enables WhatsApp 24h session window calculation. |
 
@@ -494,9 +579,8 @@ When a ticket is resolved (detected via Notion poll or manual action), the syste
 2. **AI drafts** — `ChangelogGeneratorService` calls OpenAI to produce a customer-friendly message (2-3 sentences, no jargon)
 3. **Human reviews** — The agent reads the draft, can edit the text
 4. **Human approves** — Only "Approve & Send" triggers notification dispatch
-5. **Or rejects** — "Reject" records a `changelog_rejected` event with a reason; agent can regenerate
 
-This mandatory human step is the primary defense against AI hallucinations reaching customers.
+This mandatory human step is the primary defense against AI hallucinations reaching customers. There is no reject action — agents can simply edit the draft or regenerate it.
 
 ### 7.2 ChangelogGeneratorService
 
@@ -531,10 +615,9 @@ All changelogs (AI-generated and manual) follow a mandatory 3-section structure:
 | Action | Guard | Side Effect |
 |--------|-------|-------------|
 | `approve(entry, approved_by:)` | Must be `draft` | Sets `approved_at`, enqueues `NotificationDispatchJob` |
-| `reject(entry, rejected_by:, reason:)` | Must be `draft` | Records `changelog_rejected` event with reason |
 | `update_draft(entry, new_content:)` | Must be `draft` | Updates content (human editing) |
 
-All three actions enforce a status guard — only `draft` entries can be acted on. This prevents double-dispatch or editing already-approved changelogs.
+Both actions enforce a status guard — only `draft` entries can be acted on. This prevents double-dispatch or editing already-approved changelogs.
 
 ---
 
@@ -654,7 +737,7 @@ The same bug is often reported through multiple channels — a user complains on
 |--------|--------|-------|
 | **Create group** | `create_group(name:, ticket_ids:, primary_ticket_id:)` | Minimum 2 tickets. Primary must be in the group. Tickets can't already belong to another group. |
 | **Add tickets** | `add_tickets(group, ticket_ids)` | Same uniqueness guard — no ticket in two groups. |
-| **Remove ticket** | `remove_ticket(group, ticket_id)` | If fewer than 2 remain, the group dissolves automatically. If the primary ticket is removed, a new primary is assigned. |
+| **Remove ticket** | `remove_ticket(group, ticket_id)` | Creates a `ticket_ungrouped` event. If fewer than 2 remain, the group dissolves automatically (all remaining tickets get `ticket_ungrouped` events with `reason: group_dissolved`). If the primary ticket is removed, a new primary is assigned. |
 | **Resolve group** | `resolve_group(group:, channel:, resolution_note:, content:)` | Resolves all tickets, sends one notification on the primary ticket's channel, creates `group_resolved` events. |
 
 ### 10.3 Group Resolution Flow
@@ -681,9 +764,47 @@ When resolving a group, the agent can:
 
 ---
 
-## 11. Observability
+## 11. AI Embedding & Grouping Suggestions
 
-### 11.1 StructuredLogger
+### 11.1 AiEmbeddingService
+
+Every ticket can be embedded into a vector representation using OpenAI's `text-embedding-3-small` model:
+
+- **Cost-efficient:** ~$0.002 per 1,000 tickets — the model converts text into numerical vectors that are cheaper and faster to compare than full LLM calls
+- **Stored on the ticket:** The `ai_embedding` column (float array) on the `tickets` table holds the vector
+- **Idempotent:** If `ai_embedding` is already populated, the service returns it without calling OpenAI
+- **PII scrubbed:** Text is run through `PiiScrubberService` before embedding
+
+### 11.2 AiGroupingSuggestionService
+
+Uses AI to analyze ungrouped tickets and suggest which ones should be grouped together:
+
+1. Fetches ungrouped tickets within a configurable time window (default: last 30 minutes)
+2. Scrubs PII from all ticket text before sending to OpenAI
+3. Sends ticket summaries to the configured grouping model with a structured prompt
+4. Returns suggestions: each with a group name, reason, and list of ticket IDs
+5. Also returns per-ticket redaction data so the frontend can show which PII types were scrubbed
+
+**Endpoint:** `POST /api/ticket_groups/suggest` with params: `limit`, `order`, `start_time`, `end_time`
+
+### 11.3 AI Suggestions Page (`/ticket-groups/suggestions`)
+
+A dedicated frontend page for AI-powered grouping:
+
+- **Filter modal** — Configure ticket count, ordering, and time window (advanced: start/end time pickers)
+- **Suggestions panel** — Each suggestion shows the group name, reason, and member tickets with inline channel badges, priority badges, and PII shield icons (tooltip on hover)
+- **Actions** — "Create Group" (all ungrouped), "Add to Group" (some already grouped), "View in Group" (all already grouped), or "Dismiss"
+- **Persistence** — Suggestions are saved to `localStorage` so they survive page navigations
+
+### 11.4 Incident Simulation
+
+`POST /api/ticket_groups/simulate_incident` generates 8 related tickets across Slack, Intercom, and WhatsApp channels to test the full grouping pipeline. All simulation logic is centralized in `IncidentSimulatorJob`.
+
+---
+
+## 12. Observability
+
+### 12.1 StructuredLogger
 
 JSON-structured logging with context propagation:
 
@@ -703,7 +824,7 @@ JSON-structured logging with context propagation:
 - **`measure`** — Times a block and logs duration; automatically logs errors with timing on exception
 - **Singleton** — `StructuredLogger.instance` provides a shared instance
 
-### 11.2 JobLogging Concern
+### 12.2 JobLogging Concern
 
 Included in `ApplicationJob` — every Sidekiq job automatically gets:
 
@@ -712,7 +833,7 @@ Included in `ApplicationJob` — every Sidekiq job automatically gets:
 - **Error log** — Error class, message, duration
 - **Force-fail check** — Reads from `ForceFailStore` (Redis) to intentionally fail jobs for DLQ testing
 
-### 11.3 Dead Letter Queue
+### 12.3 Dead Letter Queue
 
 When a Sidekiq job exhausts all retries:
 
@@ -721,7 +842,7 @@ When a Sidekiq job exhausts all retries:
 3. **Dashboard** → `/dead-letters` page shows unresolved failures
 4. **Actions** — Resolve (acknowledge), Retry (re-enqueue the original job)
 
-### 11.4 ForceFailStore
+### 12.4 ForceFailStore
 
 Redis-backed toggle for testing the dead letter queue in development:
 
@@ -731,9 +852,9 @@ Redis-backed toggle for testing the dead letter queue in development:
 
 ---
 
-## 12. Security
+## 13. Security
 
-### 12.1 HMAC Webhook Verification
+### 13.1 HMAC Webhook Verification
 
 All three webhook endpoints verify payload authenticity using `WebhookVerifierService`:
 
@@ -745,7 +866,7 @@ All three webhook endpoints verify payload authenticity using `WebhookVerifierSe
 
 All comparisons use `ActiveSupport::SecurityUtils.secure_compare` (timing-safe) to prevent timing attacks.
 
-### 12.2 PII Scrubbing
+### 13.2 PII Scrubbing
 
 - 4 PII types detected: emails, phone numbers, passwords, and SSNs
 - All are stripped before any OpenAI API call via `PiiScrubberService`
@@ -753,15 +874,15 @@ All comparisons use `ActiveSupport::SecurityUtils.secure_compare` (timing-safe) 
 - Original data is preserved in the database; only the AI sees scrubbed versions
 - A **preview endpoint** (`GET /api/tickets/:id/preview_changelog`) lets agents inspect the scrubbed prompt before generation
 
-### 12.3 CORS
+### 13.3 CORS
 
 Configured for `localhost:3001` only (the Next.js dashboard).
 
 ---
 
-## 13. Sequence Diagrams
+## 14. Sequence Diagrams
 
-### 13.1 Main Flow: WhatsApp Report → Resolution → Notification
+### 14.1 Main Flow: WhatsApp Report → Resolution → Notification
 
 ```mermaid
 sequenceDiagram
@@ -829,7 +950,7 @@ sequenceDiagram
     ND->>DB: Create notification (status: sent)
 ```
 
-### 13.2 Ticket Group Resolution Flow
+### 14.2 Ticket Group Resolution Flow
 
 ```mermaid
 sequenceDiagram
@@ -865,9 +986,9 @@ sequenceDiagram
 
 ---
 
-## 14. Edge Cases & Risk Analysis
+## 15. Edge Cases & Risk Analysis
 
-### 14.1 Spam & Mass Resolution (Challenge Section 10.1)
+### 15.1 Spam & Mass Resolution (Challenge Section 10.1)
 
 **Problem:** A mass-resolution event (e.g., sprint close resolving 50 tickets) could flood reporter channels with hundreds of notifications simultaneously.
 
@@ -876,19 +997,19 @@ sequenceDiagram
 2. **Human-in-the-loop** — No notification dispatches without explicit changelog approval. The agent controls the pace of approvals.
 3. **Retry limits** — `NotificationRetryJob` enforces `MAX_RETRIES = 5`. If a platform is overloaded, retries stop after 5 attempts and the notification is marked `permanently_failed` instead of retrying forever.
 
-### 14.2 WhatsApp 24h Window (Challenge Section 10.2)
+### 15.2 WhatsApp 24h Window (Challenge Section 10.2)
 
 **Problem:** WhatsApp Business API only allows free-form messages within 24 hours of the user's last message. Notifications sent after this window require pre-approved templates.
 
 **Solution:** `WhatsappDeliveryService` checks `reporter_identity.last_message_at`. If < 24h ago → session message (free-form text). If > 24h → pre-approved template message (`issue_resolved`). If no template is available or the call fails → `channel_restricted` status, surfaced in the dashboard for manual follow-up via another channel.
 
-### 14.3 AI Hallucinations (Challenge Section 10.3)
+### 15.3 AI Hallucinations (Challenge Section 10.3)
 
 **Problem:** AI-generated text could contain incorrect, misleading, or inappropriate content that reaches customers.
 
-**Solution:** No AI-generated text ever reaches a customer without human approval. The `ChangelogReviewService` enforces: draft → human reviews/edits → approve → only then do notifications dispatch. Rejection creates a `changelog_rejected` event with reason. The agent can edit the draft text before approving, or reject and regenerate entirely. This is the "Release Valve" — AI accelerates drafting, but a human always holds the send button.
+**Solution:** No AI-generated text ever reaches a customer without human approval. The `ChangelogReviewService` enforces: draft → human reviews/edits → approve → only then do notifications dispatch. The agent can edit the draft text before approving, or regenerate it entirely. This is the "Release Valve" — AI accelerates drafting, but a human always holds the send button.
 
-### 14.4 Consistency & External Dependency Failures (Challenge Section 10.4)
+### 15.4 Consistency & External Dependency Failures (Challenge Section 10.4)
 
 **Problem:** External services (Notion, OpenAI, Slack, WhatsApp) can be temporarily unavailable. The system must not lose data.
 
@@ -898,7 +1019,7 @@ sequenceDiagram
 - **Dead letter queue** — Jobs that exhaust all retries land in the `dead_letter_jobs` table for manual inspection and retry from the dashboard.
 - **Graceful degradation** — If OpenAI is down, tickets are saved with `enrichment_status: pending` (no data loss, retry later). If Notion is down, sync jobs retry 3 times with backoff. If a notification platform is down, the notification retries up to 5 times before being marked `permanently_failed`.
 
-### 14.5 PII & AI Privacy
+### 15.5 PII & AI Privacy
 
 **Problem:** Support tickets contain personal information (emails, phone numbers, passwords, SSNs) that should not be sent to external AI providers.
 
@@ -906,7 +1027,7 @@ sequenceDiagram
 
 ---
 
-## 15. API Reference
+## 16. API Reference
 
 ### Webhooks (External Intake)
 
@@ -935,7 +1056,6 @@ sequenceDiagram
 | GET | `/api/tickets/:id/preview_changelog` | Preview scrubbed AI prompt before generation |
 | POST | `/api/tickets/:id/manual_changelog` | Create manual changelog (no AI) |
 | PATCH | `/api/tickets/:id/approve_changelog` | Approve draft → dispatch notifications |
-| PATCH | `/api/tickets/:id/reject_changelog` | Reject draft with reason |
 | PATCH | `/api/tickets/:id/update_changelog_draft` | Edit draft content |
 
 ### Notifications
@@ -957,12 +1077,15 @@ sequenceDiagram
 | POST | `/api/ticket_groups/:id/resolve` | Resolve group and notify on primary ticket's channel |
 | POST | `/api/ticket_groups/:id/generate_content` | AI-generate resolution content for the group |
 | GET | `/api/ticket_groups/:id/preview_content` | Preview PII-scrubbed prompt for group content |
+| POST | `/api/ticket_groups/suggest` | AI-powered grouping suggestions (`limit`, `order`, `start_time`, `end_time`) |
+| POST | `/api/ticket_groups/simulate_incident` | Simulate 8 related tickets across channels (dev/testing) |
+| POST | `/api/ticket_groups/simulate_ticket` | Simulate a single ticket on a specified channel (dev/testing) |
 
 ### Changelog Entries
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/changelog_entries` | List all changelog entries (filter: `status=draft\|approved\|rejected`) |
+| GET | `/api/changelog_entries` | List all changelog entries (filter: `status=draft\|approved`) |
 
 ### Metrics
 
@@ -988,11 +1111,11 @@ sequenceDiagram
 
 ---
 
-## 16. Frontend Pages
+## 17. Frontend Pages
 
-The Next.js 16 dashboard at `localhost:3001` provides 8 pages:
+The Next.js 16 dashboard at `localhost:3001` provides 9 pages:
 
-### 16.1 Ticket Dashboard (`/`)
+### 17.1 Ticket Dashboard (`/`)
 
 The main landing page showing all tickets in a filterable table:
 - **Filters** — Channel (Slack/Intercom/WhatsApp), status, priority, ticket type
@@ -1002,45 +1125,54 @@ The main landing page showing all tickets in a filterable table:
 - **Pagination** — Server-side with page navigation
 - **Clickable rows** → Navigate to ticket detail
 - **Multi-select + grouping** — Checkbox selection → floating "Group Selected" bar → create group modal
-- **Simulate buttons** — Generate test tickets via Slack/Intercom/WhatsApp with optional **PII checkbox** (injects emails, phones, SSNs, passwords for testing scrubbing)
+- **Simulate buttons** — Generate test tickets via Slack/Intercom/WhatsApp with optional **PII checkbox** (injects emails, phones, SSNs, passwords for testing scrubbing). All simulate buttons have descriptive tooltips on hover
 
-### 16.2 Ticket Detail (`/tickets/[id]`)
+### 17.2 Ticket Detail (`/tickets/[id]`)
 
 Deep view of a single ticket:
-- **Data comparison** — Original (raw) vs normalized data side by side
+- **Data comparison** — Original (raw) vs normalized data side by side (collapsible)
 - **AI triage card** — Shows AI suggestions (type, priority, summary) with accept/reject
-- **Timeline** — Chronological event log (created → triaged → synced → resolved → notified)
+- **Timeline** — Chronological event log including grouped/ungrouped events (collapsible, shows event count)
 - **Sources list** — All linked ticket sources with platform badges
-- **Status actions** — Buttons to change ticket status
-- **Ticket group** — Shows group membership with link, or "Add to Group" picker
-- **Changelog review** — Generate, edit, approve/reject changelog drafts with **AI prompt preview** (shows scrubbed text + redactions before sending to OpenAI)
-- **Simulate buttons** — Testing tools for status changes
+- **Status actions** — Simulate Notion status changes with descriptive tooltips
+- **Ticket group** — Shows group membership with link, or "Add to Group" picker with search/filter
+- **Changelog review** — Generate with AI (preview scrubbed prompt, select model, edit before sending) or write manually. Back buttons on both flows. Approve or edit drafts — no reject action
+- **Simulate buttons** — Testing tools for Notion status changes with tooltips
 
-### 16.3 Ticket Groups (`/ticket-groups`)
+### 17.3 Ticket Groups (`/ticket-groups`)
 
 Cross-channel duplicate management:
-- **Group cards** — Each group shows name, status, ticket count, and expandable ticket list
-- **Status filter** — Toggle between All / Open / Resolved groups
+- **Filter card** — Status dropdown + text search (filter by group name or ID) + "Simulate Incident" button with info tooltip, live indicator dot
+- **Group cards** — Each group shows name, status, ticket count, and expandable ticket list. Expanded table has 3 columns: Title (with inline channel badge + PII shield icon), Priority, Status
 - **Resolve flow** — Click "Resolve" → modal with AI-generated or manual resolution content → sends one notification on the primary ticket's channel
 - **Auto-refresh** — 10-second polling
 
-### 16.4 Changelog Entries (`/changelog-entries`)
+### 17.3.1 AI Suggestions (`/ticket-groups/suggestions`)
+
+AI-powered grouping suggestions page:
+- **Analyze button** — Opens filter modal: ticket count, ordering, and collapsible advanced time filters
+- **Suggestions panel** — Each suggestion card shows group name, reason, ticket list with channel/priority badges, and icon-only PII indicators with tooltips
+- **Actions** — Create Group, Add to Group, View in Group, or Dismiss
+- **Persistence** — Results saved to localStorage across navigations
+- **Simplified empty state** — Text-only prompt to use the header button
+
+### 17.4 Changelog Entries (`/changelog-entries`)
 
 All changelog entries across tickets in one view:
-- **Status filter** — All / Draft / Approved / Rejected
+- **Status filter** — All / Draft / Approved
 - **Auto-refresh** — 10-second polling
 - **Table columns** — Status badge, content (truncated), ticket title (link to `/tickets/:id`), AI model, approved by, created date
 - **Related tickets** — When a ticket belongs to a group, sibling tickets are shown as sub-links
 - **Token tracking** — `ai_prompt_tokens` and `ai_completion_tokens` visible per entry
 
-### 16.5 Notifications (`/notifications`)
+### 17.5 Notifications (`/notifications`)
 
 Notification delivery history:
 - **Filters** — Status (pending/sent/failed/permanently_failed), channel
 - **Delivery details** — Recipient, content, timestamps, retry count, last error
 - **View links** — Each row has a "View" link to the notification detail page
 
-### 16.5.1 Notification Detail (`/notifications/[id]`)
+### 17.5.1 Notification Detail (`/notifications/[id]`)
 
 Deep view of a single notification:
 - **Status + channel badges** — Color-coded status and channel indicators
@@ -1050,7 +1182,7 @@ Deep view of a single notification:
 - **Linked changelog entry** — Content, status, AI model, approved by
 - **Related tickets** — When the ticket belongs to a group, sibling tickets are listed with links
 
-### 16.6 Metrics (`/metrics`)
+### 17.6 Metrics (`/metrics`)
 
 Analytics dashboard with recharts visualizations:
 - **Pie chart** — Tickets by channel
@@ -1061,7 +1193,7 @@ Analytics dashboard with recharts visualizations:
 - **Clickable charts** → Navigate to filtered ticket dashboard
 - **30-second auto-refresh**
 
-### 16.7 Dead Letters (`/dead-letters`)
+### 17.7 Dead Letters (`/dead-letters`)
 
 Dead letter queue viewer:
 - **Failed job list** — Job class, error, queue, timestamp
@@ -1070,16 +1202,16 @@ Dead letter queue viewer:
 
 ---
 
-## 17. Testing
+## 18. Testing
 
-### 17.1 Backend: 313 RSpec Specs
+### 18.1 Backend: 351 RSpec Specs
 
 All specs follow strict RED → GREEN TDD discipline:
 
 | Category | Count | Scope |
 |----------|-------|-------|
 | Model specs | 49 | Validations, associations, scopes, enums |
-| Service specs | 144 | IngestionService, AiTriageService, PiiScrubberService, ChangelogGeneratorService, ChangelogReviewService, NotificationDispatchService, NotionSyncService, NotionPollService, WhatsappDeliveryService, WebhookVerifierService, TicketGroupService, StructuredLogger |
+| Service specs | 175+ | IngestionService, AiTriageService, PiiScrubberService, ChangelogGeneratorService, ChangelogReviewService, NotificationDispatchService, NotionSyncService, NotionPollService, WhatsappDeliveryService, WebhookVerifierService, TicketGroupService, AiEmbeddingService, AiGroupingSuggestionService, AutoGroupingService, StructuredLogger |
 | Job specs | 31 | All 9 jobs — including retry limit enforcement, `retry_on` rate limit handling, dead letter handler, force-fail |
 | Request specs | 70 | All API endpoints (webhooks + REST + ticket groups + changelog entries) |
 | Constants | 23 | TicketTypePatterns (regex classification) |
@@ -1093,7 +1225,7 @@ All specs follow strict RED → GREEN TDD discipline:
 - Test cache is `NullStore`; specs that test caching stub `Rails.cache` with `MemoryStore`
 - 8 factories covering all domain models
 
-### 17.2 Frontend: 42 Tests
+### 18.2 Frontend: 42 Tests
 
 **Stack:** Jest, React Testing Library
 
@@ -1101,9 +1233,9 @@ Covers component rendering, user interactions, API integration, and error states
 
 ---
 
-## 18. Trade-offs & Alternatives
+## 19. Trade-offs & Alternatives
 
-### 18.1 Sidekiq over Kafka
+### 19.1 Sidekiq over Kafka
 
 **Chose Sidekiq** because:
 - The system has ~10 job types with modest throughput (support tickets, not real-time events)
@@ -1111,7 +1243,7 @@ Covers component rendering, user interactions, API integration, and error states
 - Redis was already required for caching
 - Kafka would add operational complexity (ZooKeeper, partitions, consumer groups) for no benefit at this scale
 
-### 18.2 Polling over Webhooks for Notion
+### 19.2 Polling over Webhooks for Notion
 
 **Chose polling** because:
 - Notion lacks granular page-level webhook events
@@ -1120,7 +1252,7 @@ Covers component rendering, user interactions, API integration, and error states
 - No public endpoint exposure or webhook registration required
 - Simpler error handling (just retry the poll) vs managing incoming webhook failures
 
-### 18.3 User-Initiated AI (Not Auto-Trigger)
+### 19.3 User-Initiated AI (Not Auto-Trigger)
 
 **Chose explicit trigger** because:
 - The simulator generates tickets every ~3 minutes — auto-triage would burn OpenAI quota
@@ -1128,7 +1260,7 @@ Covers component rendering, user interactions, API integration, and error states
 - Changelog generation is deliberately separate from resolution detection — the "Release Valve" ensures no auto-notification
 - In production, this could be switched to auto-trigger with rate limiting, but the explicit model is safer for a prototype
 
-### 18.4 Separate AI Fields vs Overwriting
+### 19.4 Separate AI Fields vs Overwriting
 
 **Chose `ai_suggested_*` fields** alongside confirmed fields because:
 - Support agents can compare AI suggestions with their own judgment
@@ -1136,7 +1268,7 @@ Covers component rendering, user interactions, API integration, and error states
 - Audit trail is clear: what did the AI suggest vs what the human confirmed
 - Enables future analysis of AI accuracy (compare suggested vs confirmed)
 
-### 18.5 Append-Only Events vs Mutable Status History
+### 19.5 Append-Only Events vs Mutable Status History
 
 **Chose `ticket_events` as append-only log** because:
 - Every state change is preserved forever (no history loss from updates)
@@ -1146,11 +1278,11 @@ Covers component rendering, user interactions, API integration, and error states
 
 ---
 
-## 19. AWS Deployment Readiness
+## 20. AWS Deployment Readiness
 
 The system is designed to deploy on **AWS ECS (Fargate) + RDS PostgreSQL + ElastiCache Redis + S3**, with no code changes required — only environment variables.
 
-### 19.1 Infrastructure Mapping
+### 20.1 Infrastructure Mapping
 
 | Local (Development) | AWS (Production) | Config Source |
 |---------------------|------------------|---------------|
@@ -1161,7 +1293,7 @@ The system is designed to deploy on **AWS ECS (Fargate) + RDS PostgreSQL + Elast
 | `sidekiq` process | **ECS Fargate** service (256 CPU / 512 MB) | `task-definition-sidekiq.json` |
 | Docker image | **ECR** container registry | `hub/Dockerfile` (production-ready) |
 
-### 19.2 ECS Service Architecture
+### 20.2 ECS Service Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -1201,7 +1333,7 @@ The system is designed to deploy on **AWS ECS (Fargate) + RDS PostgreSQL + Elast
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 19.3 Infrastructure Files
+### 20.3 Infrastructure Files
 
 ```
 infrastructure/
@@ -1216,14 +1348,14 @@ infrastructure/
 - **CloudWatch Logs** configured with per-service log groups
 - **`docker-compose.production.yml`** mirrors the ECS architecture locally with Postgres, Redis, Rails, and Sidekiq containers
 
-### 19.4 S3 Integration
+### 20.4 S3 Integration
 
 Active Storage is configured with an `amazon` service in `config/storage.yml`:
 - Uses `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars (or ECS task role for automatic credential injection)
 - Bucket name from `S3_BUCKET` env var
 - The `attachments` table already stores `storage_url` — switching to S3 requires only setting `config.active_storage.service = :amazon` in `production.rb`
 
-### 19.5 What's Already Production-Ready
+### 20.5 What's Already Production-Ready
 
 | Capability | Status |
 |------------|--------|
