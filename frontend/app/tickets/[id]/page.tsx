@@ -135,7 +135,7 @@ export default function TicketDetailPage() {
           <h2 className="section-title mb-2">Ticket Group</h2>
           {ticket.ticket_group ? (
             <div className="flex items-center gap-3">
-              <Link href="/ticket-groups" className="link-brand font-medium">
+              <Link href={`/ticket-groups/${ticket.ticket_group.id}`} className="link-brand font-medium">
                 {ticket.ticket_group.name}
               </Link>
               <span className={`badge text-xs ${

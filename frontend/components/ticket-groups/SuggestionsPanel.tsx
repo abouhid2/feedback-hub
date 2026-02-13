@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { GroupingSuggestion, SuggestionTicket } from "../../lib/types";
-import { createTicketGroup, addTicketsToGroup } from "../../lib/api";
+import { createTicketGroup, addTicketsToGroup, fetchTicket } from "../../lib/api";
 import { CHANNEL_ICONS, CHANNEL_COLORS, PRIORITY_COLORS, PRIORITY_LABELS } from "../../lib/constants";
 
 const REDACTION_LABELS: Record<string, string> = {
@@ -21,9 +21,23 @@ interface SuggestionsPanelProps {
   onToast: (message: string, type: "success" | "error") => void;
 }
 
+interface CompletedGroup {
+  groupId: string;
+  groupName: string;
+}
+
+interface ConflictInfo {
+  groupId: string;
+  groupName: string;
+  groupedTicketIds: string[];
+  ungroupedTicketIds: string[];
+}
+
 export default function SuggestionsPanel({ suggestions: initialSuggestions, tickets, redactions, onDone, onToast }: SuggestionsPanelProps) {
   const [suggestions, setSuggestions] = useState(initialSuggestions);
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
+  const [completed, setCompleted] = useState<Record<number, CompletedGroup>>({});
+  const [conflicts, setConflicts] = useState<Record<number, ConflictInfo>>({});
 
   const ticketMap = new Map<string, SuggestionTicket>();
   tickets.forEach((t) => ticketMap.set(t.id, t));
@@ -34,14 +48,77 @@ export default function SuggestionsPanel({ suggestions: initialSuggestions, tick
     if (next.length === 0) onDone();
   };
 
+  const resolveConflict = async (suggestion: GroupingSuggestion, index: number) => {
+    // Fetch fresh ticket data to find who's grouped and where
+    const freshTickets = await Promise.all(
+      suggestion.ticket_ids.map((id) => fetchTicket(id).catch(() => null))
+    );
+
+    const groupedTicket = freshTickets.find((t) => t?.ticket_group);
+    if (!groupedTicket?.ticket_group) return null;
+
+    const groupedIds = freshTickets.filter((t) => t?.ticket_group).map((t) => t!.id);
+    const ungroupedIds = freshTickets.filter((t) => t && !t.ticket_group).map((t) => t!.id);
+
+    const conflict: ConflictInfo = {
+      groupId: groupedTicket.ticket_group.id,
+      groupName: groupedTicket.ticket_group.name,
+      groupedTicketIds: groupedIds,
+      ungroupedTicketIds: ungroupedIds,
+    };
+
+    setConflicts((prev) => ({ ...prev, [index]: conflict }));
+    return conflict;
+  };
+
   const handleCreateGroup = async (suggestion: GroupingSuggestion, index: number) => {
     setLoadingIndex(index);
     try {
-      await createTicketGroup(suggestion.name, suggestion.ticket_ids, suggestion.ticket_ids[0]);
+      const group = await createTicketGroup(suggestion.name, suggestion.ticket_ids, suggestion.ticket_ids[0]);
+      setCompleted((prev) => ({ ...prev, [index]: { groupId: group.id, groupName: group.name } }));
       onToast(`Group "${suggestion.name}" created`, "success");
-      dismiss(index);
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "Failed to create group", "error");
+      const msg = e instanceof Error ? e.message : "Failed to create group";
+      if (msg.includes("already belong to a group")) {
+        try {
+          const conflict = await resolveConflict(suggestion, index);
+          if (conflict) {
+            onToast(
+              `${conflict.groupedTicketIds.length} ticket${conflict.groupedTicketIds.length !== 1 ? "s" : ""} already in "${conflict.groupName}"`,
+              "error"
+            );
+          } else {
+            onToast(msg, "error");
+          }
+        } catch {
+          onToast(msg, "error");
+        }
+      } else {
+        onToast(msg, "error");
+      }
+    } finally {
+      setLoadingIndex(null);
+    }
+  };
+
+  const handleAddUngrouped = async (index: number) => {
+    const conflict = conflicts[index];
+    if (!conflict) return;
+    setLoadingIndex(index);
+    try {
+      const group = await addTicketsToGroup(conflict.groupId, conflict.ungroupedTicketIds);
+      setCompleted((prev) => ({ ...prev, [index]: { groupId: group.id, groupName: group.name } }));
+      setConflicts((prev) => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+      onToast(
+        `Added ${conflict.ungroupedTicketIds.length} ticket${conflict.ungroupedTicketIds.length !== 1 ? "s" : ""} to "${conflict.groupName}"`,
+        "success"
+      );
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : "Failed to add tickets", "error");
     } finally {
       setLoadingIndex(null);
     }
@@ -66,15 +143,35 @@ export default function SuggestionsPanel({ suggestions: initialSuggestions, tick
 
       if (ungroupedIds.length === 0) {
         onToast(`All tickets are already grouped in "${groupedTicket.ticket_group_name}"`, "success");
-        dismiss(index);
+        setCompleted((prev) => ({ ...prev, [index]: { groupId: groupedTicket.ticket_group_id!, groupName: groupedTicket.ticket_group_name || suggestion.name } }));
         return;
       }
 
-      await addTicketsToGroup(groupedTicket.ticket_group_id, ungroupedIds);
+      const group = await addTicketsToGroup(groupedTicket.ticket_group_id, ungroupedIds);
+      setCompleted((prev) => ({ ...prev, [index]: { groupId: group.id, groupName: group.name } }));
       onToast(`Added ${ungroupedIds.length} ticket${ungroupedIds.length !== 1 ? "s" : ""} to group "${groupedTicket.ticket_group_name}"`, "success");
-      dismiss(index);
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "Failed to add tickets to group", "error");
+      const msg = e instanceof Error ? e.message : "Failed to add tickets to group";
+      if (msg.includes("already belong to a group")) {
+        try {
+          const conflict = await resolveConflict(suggestion, index);
+          if (conflict && conflict.ungroupedTicketIds.length > 0) {
+            onToast(
+              `Some tickets moved since suggestions loaded — ${conflict.ungroupedTicketIds.length} can still be added`,
+              "error"
+            );
+          } else if (conflict) {
+            setCompleted((prev) => ({ ...prev, [index]: { groupId: conflict.groupId, groupName: conflict.groupName } }));
+            onToast(`All tickets are already in "${conflict.groupName}"`, "success");
+          } else {
+            onToast(msg, "error");
+          }
+        } catch {
+          onToast(msg, "error");
+        }
+      } else {
+        onToast(msg, "error");
+      }
     } finally {
       setLoadingIndex(null);
     }
@@ -106,43 +203,93 @@ export default function SuggestionsPanel({ suggestions: initialSuggestions, tick
         const allAlreadyGrouped = suggestionTickets.length > 0 && suggestionTickets.every((t) => t.ticket_group_id);
 
         return (
-          <div key={index} className="card border border-indigo-100 bg-indigo-50/30">
+          <div key={index} className={`card border ${completed[index] ? "border-green-200 bg-green-50/30" : conflicts[index] ? "border-amber-200 bg-amber-50/30" : "border-indigo-100 bg-indigo-50/30"}`}>
             <div className="flex items-start justify-between mb-2">
               <div>
                 <h4 className="font-semibold text-gray-900">{suggestion.name}</h4>
                 <p className="text-sm text-gray-500 mt-0.5">{suggestion.reason}</p>
+                {conflicts[index] && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    {conflicts[index].groupedTicketIds.length} ticket{conflicts[index].groupedTicketIds.length !== 1 ? "s" : ""} already
+                    in &ldquo;{conflicts[index].groupName}&rdquo;
+                    {conflicts[index].ungroupedTicketIds.length > 0 && (
+                      <> &mdash; {conflicts[index].ungroupedTicketIds.length} can be added</>
+                    )}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2 ml-4 shrink-0">
-                {allAlreadyGrouped ? (
-                  <Link
-                    href={`/ticket-groups?group=${suggestionTickets[0]?.ticket_group_id}`}
-                    className="px-3 py-1.5 text-sm text-brand bg-brand-light rounded-lg hover:bg-brand-medium transition-colors"
-                  >
-                    View in &ldquo;{suggestionTickets[0]?.ticket_group_name}&rdquo;
-                  </Link>
-                ) : allUngrouped ? (
-                  <button
-                    onClick={() => handleCreateGroup(suggestion, index)}
-                    disabled={loadingIndex === index}
-                    className="btn-primary px-3 py-1.5 text-sm"
-                  >
-                    {loadingIndex === index ? "Creating..." : "Create Group"}
-                  </button>
-                ) : hasGroupedTickets ? (
-                  <button
-                    onClick={() => handleAddToGroup(suggestion, index)}
-                    disabled={loadingIndex === index}
-                    className="btn-primary px-3 py-1.5 text-sm"
-                  >
-                    {loadingIndex === index ? "Adding..." : "Add to Group"}
-                  </button>
-                ) : null}
-                <button
-                  onClick={() => dismiss(index)}
-                  className="text-gray-400 hover:text-gray-600 px-2 py-1.5 text-sm"
-                >
-                  Dismiss
-                </button>
+                {completed[index] ? (
+                  <>
+                    <Link
+                      href={`/ticket-groups/${completed[index].groupId}`}
+                      className="px-3 py-1.5 text-sm text-brand bg-brand-light rounded-lg hover:bg-brand-medium transition-colors"
+                    >
+                      View &ldquo;{completed[index].groupName}&rdquo;
+                    </Link>
+                    <button onClick={() => dismiss(index)} className="text-gray-400 hover:text-gray-600 px-2 py-1.5 text-sm">
+                      Dismiss
+                    </button>
+                  </>
+                ) : conflicts[index] ? (
+                  <>
+                    <Link
+                      href={`/ticket-groups/${conflicts[index].groupId}`}
+                      className="px-3 py-1.5 text-sm text-brand bg-brand-light rounded-lg hover:bg-brand-medium transition-colors"
+                    >
+                      View &ldquo;{conflicts[index].groupName}&rdquo;
+                    </Link>
+                    {conflicts[index].ungroupedTicketIds.length > 0 && (
+                      <button
+                        onClick={() => handleAddUngrouped(index)}
+                        disabled={loadingIndex === index}
+                        className="btn-primary px-3 py-1.5 text-sm"
+                      >
+                        {loadingIndex === index
+                          ? "Adding..."
+                          : `Add ${conflicts[index].ungroupedTicketIds.length} to group`}
+                      </button>
+                    )}
+                    <button onClick={() => dismiss(index)} className="text-gray-400 hover:text-gray-600 px-2 py-1.5 text-sm">
+                      Dismiss
+                    </button>
+                  </>
+                ) : allAlreadyGrouped ? (
+                  <>
+                    <Link
+                      href={`/ticket-groups/${suggestionTickets[0]?.ticket_group_id}`}
+                      className="px-3 py-1.5 text-sm text-brand bg-brand-light rounded-lg hover:bg-brand-medium transition-colors"
+                    >
+                      View &ldquo;{suggestionTickets[0]?.ticket_group_name}&rdquo;
+                    </Link>
+                    <button onClick={() => dismiss(index)} className="text-gray-400 hover:text-gray-600 px-2 py-1.5 text-sm">
+                      Dismiss
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {allUngrouped ? (
+                      <button
+                        onClick={() => handleCreateGroup(suggestion, index)}
+                        disabled={loadingIndex === index}
+                        className="btn-primary px-3 py-1.5 text-sm"
+                      >
+                        {loadingIndex === index ? "Creating..." : "Create Group"}
+                      </button>
+                    ) : hasGroupedTickets ? (
+                      <button
+                        onClick={() => handleAddToGroup(suggestion, index)}
+                        disabled={loadingIndex === index}
+                        className="btn-primary px-3 py-1.5 text-sm"
+                      >
+                        {loadingIndex === index ? "Adding..." : "Add to Group"}
+                      </button>
+                    ) : null}
+                    <button onClick={() => dismiss(index)} className="text-gray-400 hover:text-gray-600 px-2 py-1.5 text-sm">
+                      Dismiss
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 

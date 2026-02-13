@@ -32,7 +32,9 @@ export default function TicketGroupCard({ group, highlight, onResolve }: TicketG
     <div ref={cardRef} className={`card mb-3${highlight ? " ring-2 ring-brand ring-offset-2" : ""}`}>
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">{group.name}</h3>
+          <Link href={`/ticket-groups/${group.id}`} className="text-lg font-semibold text-gray-900 hover:text-brand">
+            {group.name}
+          </Link>
           <p className="text-sm text-gray-500">
             {group.ticket_count} ticket{group.ticket_count !== 1 ? "s" : ""} &middot; Created {timeAgo(group.created_at)}
           </p>
