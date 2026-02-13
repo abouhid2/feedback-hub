@@ -87,10 +87,46 @@ module Api
         original: ticket_text,
         scrubbed: result[:scrubbed],
         redactions: result[:redactions].map { |r| { type: r[:type], original: r[:original] } },
-        system_prompt: ChangelogPrompts::DEFAULT_GROUP_SYSTEM_PROMPT
+        system_prompt: AiConstants::CHANGELOG_GROUP_SYSTEM_PROMPT
       }
     rescue ActiveRecord::RecordNotFound
       render json: { error: "Ticket group not found" }, status: :not_found
+    end
+
+    def suggest
+      limit = (params[:limit] || 50).to_i
+      order = params[:order].presence || "last"
+      start_time = params[:start_time].present? ? Time.zone.parse(params[:start_time]) : 30.minutes.ago
+      end_time = params[:end_time].present? ? Time.zone.parse(params[:end_time]) : Time.current
+
+      result = AiGroupingSuggestionService.call(
+        limit: limit, order: order, start_time: start_time, end_time: end_time
+      )
+      render json: result
+    rescue AiGroupingSuggestionService::AiApiError => e
+      render json: { error: e.message }, status: :unprocessable_entity
+    end
+
+    def simulate_incident
+      Simulator::IncidentSimulatorJob.new.perform
+      render json: { message: "Incident simulation complete", ticket_count: 8 }
+    end
+
+    def simulate_ticket
+      channel = params[:channel]
+      job_class = {
+        "slack" => Simulator::SlackSimulatorJob,
+        "intercom" => Simulator::IntercomSimulatorJob,
+        "whatsapp" => Simulator::WhatsappSimulatorJob
+      }[channel]
+
+      unless job_class
+        return render json: { error: "Unknown channel: #{channel}" }, status: :unprocessable_entity
+      end
+
+      include_pii = ActiveModel::Type::Boolean.new.cast(params[:include_pii])
+      job_class.new.perform(include_pii: include_pii)
+      render json: { message: "#{channel.capitalize} ticket simulated", channel: channel }
     end
 
     private
@@ -125,6 +161,7 @@ module Api
         status: ticket.status,
         original_channel: ticket.original_channel,
         reporter: ticket.reporter ? { name: ticket.reporter.name, email: ticket.reporter.email } : nil,
+        pii_redacted_types: ticket.pii_redacted_types || [],
         created_at: ticket.created_at
       }
     end

@@ -114,6 +114,14 @@
     @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white bg-sidebar-active;
   }
 
+  /* Sub-navigation Links */
+  .nav-sub-link {
+    @apply block pl-11 pr-3 py-1.5 text-xs text-sidebar-muted hover:text-white rounded-md transition-colors;
+  }
+  .nav-sub-link-active {
+    @apply block pl-11 pr-3 py-1.5 text-xs font-medium text-white bg-sidebar-active/50 rounded-md;
+  }
+
   /* Simulate Buttons */
   .simulate-btn-slack {
     @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:opacity-50 transition-colors;

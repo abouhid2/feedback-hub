@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_12_100647) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_13_152510) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -138,6 +138,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_12_100647) do
   end
 
   create_table "tickets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.float "ai_embedding", array: true
     t.integer "ai_suggested_priority"
     t.string "ai_suggested_type"
     t.text "ai_summary"
@@ -147,6 +148,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_12_100647) do
     t.jsonb "metadata", default: {}
     t.string "notion_page_id"
     t.string "original_channel", null: false
+    t.string "pii_redacted_types", default: [], array: true
     t.integer "priority", default: 3, null: false
     t.uuid "reporter_id"
     t.string "status", default: "open", null: false

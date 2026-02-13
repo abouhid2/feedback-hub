@@ -119,7 +119,28 @@ export interface TicketGroupTicket {
   status: string;
   original_channel: string;
   reporter: { name: string; email: string | null } | null;
+  pii_redacted_types: string[];
   created_at: string;
+}
+
+export interface GroupingSuggestion {
+  name: string;
+  reason: string;
+  ticket_ids: string[];
+}
+
+export interface SuggestionTicket extends TicketGroupTicket {
+  description: string | null;
+  ai_summary: string | null;
+  ticket_group_id: string | null;
+  ticket_group_name: string | null;
+}
+
+export interface GroupingSuggestionsResponse {
+  suggestions: GroupingSuggestion[];
+  tickets: SuggestionTicket[];
+  redactions: Record<string, string[]>;
+  ticket_count: number;
 }
 
 export interface TicketGroup {

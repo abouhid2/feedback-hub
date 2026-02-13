@@ -24,11 +24,11 @@ const STATUS_OPTIONS = [
 
 const PRIORITY_OPTIONS = [
   { value: "all", label: "All priorities" },
-  { value: "0", label: "P0 Critical" },
-  { value: "1", label: "P1 High" },
-  { value: "2", label: "P2 Medium" },
-  { value: "3", label: "P3 Normal" },
-  { value: "4", label: "P4 Low" },
+  { value: "0", label: "P0" },
+  { value: "1", label: "P1" },
+  { value: "2", label: "P2" },
+  { value: "3", label: "P3" },
+  { value: "4", label: "P4" },
 ];
 
 const TYPE_OPTIONS = [

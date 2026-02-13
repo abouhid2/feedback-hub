@@ -15,7 +15,6 @@ Rails.application.routes.draw do
         get :preview_changelog, to: "changelogs#preview"
         post :manual_changelog, to: "changelogs#manual_create"
         patch :approve_changelog, to: "changelogs#approve"
-        patch :reject_changelog, to: "changelogs#reject"
         patch :update_changelog_draft, to: "changelogs#update_draft"
         post :simulate_status
       end
@@ -25,6 +24,11 @@ Rails.application.routes.draw do
     resources :changelog_entries, only: [:index]
 
     resources :ticket_groups, only: [:index, :show, :create] do
+      collection do
+        post :suggest
+        post :simulate_incident
+        post :simulate_ticket
+      end
       member do
         post :add_tickets
         delete :remove_ticket

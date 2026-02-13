@@ -56,10 +56,27 @@ class TicketGroupService
 
   def self.remove_ticket(group, ticket_id)
     ticket = Ticket.find(ticket_id)
+    group_name = group.name
+    group_id = group.id
     ticket.update!(ticket_group_id: nil)
+
+    ticket.ticket_events.create!(
+      event_type: "ticket_ungrouped",
+      actor_type: "user",
+      actor_id: "ticket_group_service",
+      data: { group_id: group_id, group_name: group_name }
+    )
 
     remaining = group.tickets.reload
     if remaining.size < 2
+      remaining.each do |t|
+        t.ticket_events.create!(
+          event_type: "ticket_ungrouped",
+          actor_type: "system",
+          actor_id: "ticket_group_service",
+          data: { group_id: group_id, group_name: group_name, reason: "group_dissolved" }
+        )
+      end
       remaining.update_all(ticket_group_id: nil)
       group.destroy
       return :dissolved

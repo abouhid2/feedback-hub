@@ -1,8 +1,8 @@
 class AiTriageService
   class AiApiError < StandardError; end
 
-  OPENAI_URL = "https://api.openai.com/v1/chat/completions".freeze
-  MODEL = "gpt-4o-mini".freeze
+  OPENAI_URL = AiConstants::OPENAI_CHAT_URL
+  MODEL = AiConstants::TRIAGE_MODEL
 
   def self.call(ticket)
     new(ticket).call
@@ -10,6 +10,7 @@ class AiTriageService
 
   def initialize(ticket)
     @ticket = ticket
+    @redaction_types = []
   end
 
   def call
@@ -20,12 +21,17 @@ class AiTriageService
     response = request_openai
     parsed = parse_response(response)
 
-    @ticket.update!(
+    updates = {
       ai_suggested_type: parsed["suggested_type"],
       ai_suggested_priority: parsed["suggested_priority"],
       ai_summary: parsed["summary"],
       enrichment_status: "completed"
-    )
+    }
+    if @redaction_types.any?
+      merged = (@ticket.pii_redacted_types + @redaction_types).uniq
+      updates[:pii_redacted_types] = merged
+    end
+    @ticket.update!(updates)
 
     @ticket.ticket_events.create!(
       event_type: "ai_triaged",
@@ -37,6 +43,15 @@ class AiTriageService
         ai_summary: parsed["summary"]
       }
     )
+
+    if @redaction_types.any?
+      @ticket.ticket_events.create!(
+        event_type: "pii_redacted",
+        actor_type: "system",
+        actor_id: "ai_triage",
+        data: { redacted_types: @redaction_types, service: "triage" }
+      )
+    end
 
     NotionSyncJob.perform_later(@ticket.id)
 
@@ -93,12 +108,13 @@ class AiTriageService
   end
 
   def system_prompt
-    "You are an AI triage assistant. Analyze support tickets and return JSON with: suggested_type (bug/feature_request/question/incident), suggested_priority (0-5, where 0 is critical), and summary (one clean sentence). Return ONLY valid JSON."
+    AiConstants::TRIAGE_SYSTEM_PROMPT
   end
 
   def user_prompt
-    scrubbed = PiiScrubberService.scrub(ticket_text)[:scrubbed]
-    scrubbed
+    result = PiiScrubberService.scrub(ticket_text)
+    @redaction_types = result[:redactions].map { |r| r[:type].to_s }.uniq
+    result[:scrubbed]
   end
 
   def ticket_text

@@ -22,21 +22,6 @@ class ChangelogReviewService
     entry
   end
 
-  def self.reject(entry, rejected_by:, reason:)
-    validate_draft!(entry)
-
-    entry.update!(status: "rejected")
-
-    entry.ticket.ticket_events.create!(
-      event_type: "changelog_rejected",
-      actor_type: "user",
-      actor_id: rejected_by,
-      data: { changelog_entry_id: entry.id, rejected_by: rejected_by, reason: reason }
-    )
-
-    entry
-  end
-
   def self.update_draft(entry, new_content:)
     validate_draft!(entry)
 

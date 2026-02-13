@@ -10,27 +10,46 @@ interface DataComparisonProps {
 
 export default function DataComparison({ ticket }: DataComparisonProps) {
   const [dataView, setDataView] = useState<"normalized" | "raw">("normalized");
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="section-title">Data</h2>
-        <div className="flex gap-1">
-          <button
-            onClick={() => setDataView("normalized")}
-            className={dataView === "normalized" ? "toggle-active" : "toggle-inactive"}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-2 text-left"
+        >
+          <svg
+            className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? "rotate-90" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
           >
-            Normalized
-          </button>
-          <button
-            onClick={() => setDataView("raw")}
-            className={dataView === "raw" ? "toggle-active" : "toggle-inactive"}
-          >
-            Raw payload
-          </button>
-        </div>
+            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+          </svg>
+          <h2 className="section-title">Data</h2>
+        </button>
+        {expanded && (
+          <div className="flex gap-1">
+            <button
+              onClick={() => setDataView("normalized")}
+              className={dataView === "normalized" ? "toggle-active" : "toggle-inactive"}
+            >
+              Normalized
+            </button>
+            <button
+              onClick={() => setDataView("raw")}
+              className={dataView === "raw" ? "toggle-active" : "toggle-inactive"}
+            >
+              Raw payload
+            </button>
+          </div>
+        )}
       </div>
 
+      {!expanded ? null : (
+      <div className="mt-4">
       {dataView === "normalized" ? (
         <table className="w-full text-sm">
           <tbody className="divide-y divide-gray-100">
@@ -110,6 +129,8 @@ export default function DataComparison({ ticket }: DataComparisonProps) {
             </p>
           )}
         </div>
+      )}
+      </div>
       )}
     </div>
   );

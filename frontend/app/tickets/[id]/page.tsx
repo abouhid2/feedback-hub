@@ -12,6 +12,7 @@ import TicketTimeline from "../../../components/ticket-detail/TicketTimeline";
 import DataComparison from "../../../components/ticket-detail/DataComparison";
 import SourcesList from "../../../components/ticket-detail/SourcesList";
 import StatusActions from "../../../components/ticket-detail/StatusActions";
+import SearchInput from "../../../components/SearchInput";
 import Toast from "../../../components/Toast";
 
 export default function TicketDetailPage() {
@@ -23,6 +24,7 @@ export default function TicketDetailPage() {
   const [openGroups, setOpenGroups] = useState<TicketGroup[]>([]);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
+  const [groupSearch, setGroupSearch] = useState("");
 
   const loadTicket = useCallback(async () => {
     try {
@@ -164,18 +166,32 @@ export default function TicketDetailPage() {
                   {openGroups.length === 0 ? (
                     <span className="text-xs text-gray-400">No open groups</span>
                   ) : (
-                    <select
-                      onChange={(e) => {
-                        if (e.target.value) handleAddToGroup(e.target.value);
-                      }}
-                      className="border border-gray-300 rounded text-xs px-2 py-1"
-                      defaultValue=""
-                    >
-                      <option value="" disabled>Select a group...</option>
-                      {openGroups.map((g) => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
-                    </select>
+                    <>
+                      <SearchInput
+                        value={groupSearch}
+                        onChange={setGroupSearch}
+                        placeholder="Filter groups..."
+                        className="w-40"
+                      />
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) handleAddToGroup(e.target.value);
+                        }}
+                        className="border border-gray-300 rounded text-xs px-2 py-1"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>Select a group...</option>
+                        {openGroups
+                          .filter((g) => {
+                            if (!groupSearch) return true;
+                            const q = groupSearch.toLowerCase();
+                            return g.name.toLowerCase().includes(q) || g.id.toLowerCase().includes(q);
+                          })
+                          .map((g) => (
+                            <option key={g.id} value={g.id}>{g.name}</option>
+                          ))}
+                      </select>
+                    </>
                   )}
                 </div>
               )}

@@ -1,4 +1,4 @@
-import { Ticket, TicketDetail, ChangelogEntry, Notification, NotificationDetail, ChangelogEntryWithTicket, TicketGroup } from "./types";
+import { Ticket, TicketDetail, ChangelogEntry, Notification, NotificationDetail, ChangelogEntryWithTicket, TicketGroup, GroupingSuggestionsResponse } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
@@ -106,99 +106,12 @@ export function approveChangelog(ticketId: string, approvedBy: string): Promise<
   return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/approve_changelog`, "PATCH", { approved_by: approvedBy });
 }
 
-export function rejectChangelog(ticketId: string, rejectedBy: string, reason: string): Promise<ChangelogEntry> {
-  return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/reject_changelog`, "PATCH", { rejected_by: rejectedBy, reason });
-}
-
 export function updateChangelogDraft(ticketId: string, content: string): Promise<ChangelogEntry> {
   return mutate<ChangelogEntry>(`/api/tickets/${ticketId}/update_changelog_draft`, "PATCH", { content });
 }
 
-export function simulateTicket(channel: "slack" | "intercom" | "whatsapp", options?: { includePii?: boolean }): Promise<unknown> {
-  const piiText = options?.includePii
-    ? "Login broken for user maria.garcia@company.com (phone: +56 9 8765 4321). SSN: 123-45-6789. Password: hunter2. Please fix ASAP."
-    : "Test ticket from frontend simulator";
-
-  const piiName = options?.includePii ? "Maria Garcia" : "Test User";
-  const piiEmail = options?.includePii ? "maria.garcia@company.com" : "test@example.com";
-
-  const payloads: Record<string, () => Record<string, unknown>> = {
-    slack: () => ({
-      token: `xoxb-${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`,
-      team_id: `T${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-      team_domain: "feedback-hub",
-      channel_id: "C_BUGS",
-      channel_name: "bugs",
-      user_id: `U_TEST${crypto.randomUUID().slice(0, 6).toUpperCase()}`,
-      user_name: options?.includePii ? "maria.garcia" : "test_user",
-      command: "/bug",
-      text: piiText,
-      trigger_id: `${Date.now()}.123.abc`,
-      response_url: `https://hooks.slack.com/commands/${crypto.randomUUID().slice(0, 12)}`,
-      payload: {
-        issue_id: `SIM${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-        reporter: options?.includePii ? "maria.garcia" : "test_user",
-        priority: ["critica", "alta", "media", "baja"][Math.floor(Math.random() * 4)],
-        incident: piiText,
-        agency: "TestAgency",
-        job_id: `https://love.feedback-hub.ai/es/positions/${crypto.randomUUID().slice(0, 12)}`,
-        additional_details: options?.includePii
-          ? "User shared credentials: pwd=secret123, contact at 555-012-3456"
-          : "Created via frontend simulate button",
-      },
-    }),
-    intercom: () => ({
-      type: "notification_event",
-      topic: "conversation.created",
-      data: {
-        item: {
-          type: "conversation",
-          id: `${Math.floor(20000000 + Math.random() * 10000000)}`,
-          created_at: Math.floor(Date.now() / 1000),
-          source: {
-            type: "conversation",
-            body: piiText,
-            author: {
-              type: "user",
-              id: `user_${crypto.randomUUID().slice(0, 12)}`,
-              name: piiName,
-              email: piiEmail,
-            },
-          },
-          conversation_parts: { total_count: 0 },
-        },
-      },
-    }),
-    whatsapp: () => ({
-      object: "whatsapp_business_account",
-      entry: [
-        {
-          id: `BIZ_${crypto.randomUUID().slice(0, 12).toUpperCase()}`,
-          changes: [
-            {
-              value: {
-                messaging_product: "whatsapp",
-                metadata: { phone_number_id: `PHONE_${crypto.randomUUID().slice(0, 8).toUpperCase()}` },
-                contacts: [{ profile: { name: piiName }, wa_id: options?.includePii ? "56987654321" : "56900000000" }],
-                messages: [
-                  {
-                    id: `wamid.${crypto.randomUUID().replace(/-/g, "")}`,
-                    from: options?.includePii ? "56987654321" : "56900000000",
-                    timestamp: `${Math.floor(Date.now() / 1000)}`,
-                    type: "text",
-                    text: { body: piiText },
-                  },
-                ],
-              },
-              field: "messages",
-            },
-          ],
-        },
-      ],
-    }),
-  };
-
-  return mutate(`/webhooks/${channel}`, "POST", payloads[channel]());
+export function simulateTicket(channel: "slack" | "intercom" | "whatsapp", options?: { includePii?: boolean }): Promise<{ message: string; channel: string }> {
+  return mutate<{ message: string; channel: string }>("/api/ticket_groups/simulate_ticket", "POST", { channel, include_pii: options?.includePii || false });
 }
 
 export function simulateStatus(ticketId: string, status: string): Promise<TicketDetail> {
@@ -246,6 +159,21 @@ export function resolveTicketGroup(groupId: string, channel: string, content: st
 
 export function previewGroupContent(groupId: string): Promise<ChangelogPreview> {
   return request<ChangelogPreview>(`/api/ticket_groups/${groupId}/preview_content`);
+}
+
+export interface SuggestFilters {
+  limit: number;
+  order: "first" | "last";
+  start_time: string;
+  end_time: string;
+}
+
+export function suggestTicketGroups(filters: SuggestFilters): Promise<GroupingSuggestionsResponse> {
+  return mutate<GroupingSuggestionsResponse>("/api/ticket_groups/suggest", "POST", filters as unknown as Record<string, unknown>);
+}
+
+export function simulateIncident(): Promise<{ message: string; ticket_count: number }> {
+  return mutate<{ message: string; ticket_count: number }>("/api/ticket_groups/simulate_incident", "POST");
 }
 
 export function generateGroupContent(

@@ -126,6 +126,127 @@ RSpec.describe "Api::TicketGroups", type: :request do
     end
   end
 
+  describe "POST /api/ticket_groups/suggest" do
+    let(:openai_response) do
+      {
+        choices: [{
+          message: {
+            content: {
+              groups: [{
+                name: "Login Outage",
+                reason: "Both tickets report login issues",
+                ticket_ids: [ticket1.id, ticket2.id]
+              }]
+            }.to_json
+          }
+        }]
+      }.to_json
+    end
+
+    before do
+      stub_request(:post, "https://api.openai.com/v1/chat/completions")
+        .to_return(status: 200, body: openai_response, headers: { "Content-Type" => "application/json" })
+    end
+
+    it "returns AI grouping suggestions" do
+      post "/api/ticket_groups/suggest", params: { start_time: 24.hours.ago.iso8601, end_time: 1.minute.from_now.iso8601 }
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["suggestions"].length).to eq(1)
+      expect(body["suggestions"].first["name"]).to eq("Login Outage")
+      expect(body["ticket_count"]).to eq(2)
+    end
+
+    it "uses defaults when no params given" do
+      post "/api/ticket_groups/suggest"
+
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "accepts limit and order params" do
+      post "/api/ticket_groups/suggest", params: { limit: 10, order: "first", start_time: 24.hours.ago.iso8601, end_time: 1.minute.from_now.iso8601 }
+
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "returns 422 when OpenAI fails" do
+      stub_request(:post, "https://api.openai.com/v1/chat/completions")
+        .to_return(status: 500, body: '{"error":"fail"}')
+
+      post "/api/ticket_groups/suggest", params: { start_time: 24.hours.ago.iso8601, end_time: 1.minute.from_now.iso8601 }
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      body = JSON.parse(response.body)
+      expect(body["error"]).to include("500")
+    end
+  end
+
+  describe "POST /api/ticket_groups/simulate_incident" do
+    before do
+      stub_request(:post, "http://localhost:3000/webhooks/whatsapp")
+        .to_return(status: 200, body: '{"status":"ok"}')
+      stub_request(:post, "http://localhost:3000/webhooks/slack")
+        .to_return(status: 200, body: '{"status":"ok"}')
+    end
+
+    it "runs the incident simulation and returns success" do
+      post "/api/ticket_groups/simulate_incident"
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["message"]).to eq("Incident simulation complete")
+      expect(body["ticket_count"]).to eq(8)
+    end
+
+    it "makes 8 webhook posts" do
+      post "/api/ticket_groups/simulate_incident"
+
+      expect(WebMock).to have_requested(:post, "http://localhost:3000/webhooks/whatsapp").times(5)
+      expect(WebMock).to have_requested(:post, "http://localhost:3000/webhooks/slack").times(3)
+    end
+  end
+
+  describe "POST /api/ticket_groups/simulate_ticket" do
+    before do
+      stub_request(:post, "http://localhost:3000/webhooks/slack")
+        .to_return(status: 200, body: '{"status":"ok"}')
+      stub_request(:post, "http://localhost:3000/webhooks/intercom")
+        .to_return(status: 200, body: '{"status":"ok"}')
+      stub_request(:post, "http://localhost:3000/webhooks/whatsapp")
+        .to_return(status: 200, body: '{"status":"ok"}')
+    end
+
+    it "simulates a slack ticket" do
+      post "/api/ticket_groups/simulate_ticket", params: { channel: "slack" }
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["channel"]).to eq("slack")
+      expect(WebMock).to have_requested(:post, "http://localhost:3000/webhooks/slack").once
+    end
+
+    it "simulates an intercom ticket" do
+      post "/api/ticket_groups/simulate_ticket", params: { channel: "intercom" }
+
+      expect(response).to have_http_status(:ok)
+      expect(WebMock).to have_requested(:post, "http://localhost:3000/webhooks/intercom").once
+    end
+
+    it "simulates a whatsapp ticket" do
+      post "/api/ticket_groups/simulate_ticket", params: { channel: "whatsapp" }
+
+      expect(response).to have_http_status(:ok)
+      expect(WebMock).to have_requested(:post, "http://localhost:3000/webhooks/whatsapp").once
+    end
+
+    it "returns 422 for unknown channel" do
+      post "/api/ticket_groups/simulate_ticket", params: { channel: "email" }
+
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+  end
+
   describe "POST /api/ticket_groups/:id/resolve" do
     let!(:entry1) { create(:changelog_entry, :approved, ticket: ticket1) }
     let!(:entry2) { create(:changelog_entry, :approved, ticket: ticket2) }
